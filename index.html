@@ -174,13 +174,20 @@
       border-color: rgba(94, 164, 255, 0.5);
       background: rgba(14, 23, 37, 0.9);
     }
-    .footer {
+    .page-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 12px 24px;
+      background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.45) 100%);
+      color: var(--text);
       gap: 12px;
-      margin-top: 16px;
       flex-wrap: wrap;
+      z-index: 5;
     }
     .ghost {
       padding: 10px 14px;
@@ -221,12 +228,6 @@
       </div>
 
       <div class="panel dashboard-panel hidden" id="dashboard-panel">
-        <span class="chip">Painel</span>
-        <h1>Black-List Bradesco Vida</h1>
-        <h2>Introdu&ccedil;&atilde;o</h2>
-        <p class="muted">
-          Adicionar importa CPFs para a tabela BlackList. Extrair gera a lista atual. Limpar compara sua planilha com a BlackList e remove os CPFs encontrados.
-        </p>
         <div class="actions">
           <button class="action-btn" id="btn-add">
             <strong>Adicionar a Black-List</strong>
@@ -241,13 +242,13 @@
             <span>Remove CPFs presentes na BlackList de sua planilha.</span>
           </button>
         </div>
-        <div class="footer">
-          <button class="ghost" id="btn-terms">Termos de uso</button>
-          <small>Feito por Andr&eacute; Galante</small>
-        </div>
       </div>
     </section>
   </div>
+  <footer class="page-footer">
+    <button class="ghost" id="btn-terms">Termos de uso</button>
+    <small>Feito por Andr&eacute; Galante</small>
+  </footer>
   <script>
     const form = document.getElementById("login-form");
     const loginCard = document.getElementById("login-card");
