@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const multer = require("multer");
 const { parse } = require("csv-parse/sync");
 const { Pool } = require("pg");
@@ -23,6 +24,75 @@ const pool = new Pool({
 
 const PORT = process.env.PORT || 3000;
 const CPF_HEADER = new Set(["cpf"]);
+
+const LOG_DIR = path.join(__dirname, "logs");
+const LOG_FILE = path.join(LOG_DIR, "app.log");
+
+const ensureLogDir = () => {
+  if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
+};
+ensureLogDir();
+
+const logEvent = async (action, status, meta = {}, message = "") => {
+  const line = {
+    ts: new Date().toISOString(),
+    action,
+    status,
+    message,
+    ...meta,
+  };
+  try {
+    fs.appendFileSync(LOG_FILE, `${JSON.stringify(line)}\n`);
+  } catch (err) {
+    console.error("Erro ao gravar log em arquivo:", err);
+  }
+  try {
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS blacklist_log (
+         id SERIAL PRIMARY KEY,
+         action TEXT,
+         status INT,
+         message TEXT,
+         processed INT,
+         inserted INT,
+         duplicates INT,
+         invalid INT,
+         total_input INT,
+         output_count INT,
+         ip INET,
+         created_at TIMESTAMP DEFAULT NOW()
+       )`
+    );
+    const fields = {
+      processed: meta.processed ?? null,
+      inserted: meta.inserted ?? null,
+      duplicates: meta.duplicates ?? null,
+      invalid: meta.invalid ?? null,
+      total_input: meta.total_input ?? null,
+      output_count: meta.output_count ?? null,
+      ip: meta.ip || null,
+    };
+    await pool.query(
+      `INSERT INTO blacklist_log
+       (action, status, message, processed, inserted, duplicates, invalid, total_input, output_count, ip)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        action,
+        status,
+        message || null,
+        fields.processed,
+        fields.inserted,
+        fields.duplicates,
+        fields.invalid,
+        fields.total_input,
+        fields.output_count,
+        fields.ip,
+      ]
+    );
+  } catch (err) {
+    console.error("Erro ao gravar log no banco:", err);
+  }
+};
 
 const normalizeCpf = (value = "") => value.replace(/\D/g, "");
 const isValidCpf = (cpf) => cpf.length === 11;
@@ -70,6 +140,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
+  const ip = req.ip;
   try {
     ensurePool();
     if (!req.file) {
@@ -117,15 +188,22 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
       );
 
       await client.query("COMMIT");
-      return res.json({
+      const payload = {
         inserted,
         duplicates,
         invalid,
         processed: validCpfs.length + invalid,
+      };
+      await logEvent("import", 200, {
+        ...payload,
+        total_input: validCpfs.length + invalid,
+        ip,
       });
+      return res.json(payload);
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Erro no import:", err);
+      await logEvent("import", 500, { ip }, "Erro no import");
       return res.status(500).json({ error: "Falha ao importar CPFs." });
     } finally {
       client.release();
@@ -133,17 +211,24 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
   } catch (err) {
     const status = err.status || 500;
     console.error(err);
+    await logEvent("import", status, { ip }, err.message);
     res.status(status).json({ error: err.message || "Erro interno." });
   }
 });
 
 app.get("/api/blacklist/export", async (req, res) => {
+  const ip = req.ip;
   try {
     ensurePool();
     const result = await pool.query(
       "SELECT cpf FROM blacklist ORDER BY updated_at DESC"
     );
     const lines = ["cpf", ...result.rows.map((r) => r.cpf)];
+    await logEvent("export", 200, {
+      processed: result.rowCount,
+      output_count: result.rowCount,
+      ip,
+    });
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
@@ -152,11 +237,13 @@ app.get("/api/blacklist/export", async (req, res) => {
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
+    await logEvent("export", 500, { ip }, "Falha ao exportar BlackList");
     res.status(500).json({ error: "Falha ao exportar BlackList." });
   }
 });
 
 app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
+  const ip = req.ip;
   try {
     ensurePool();
     if (!req.file) {
@@ -186,6 +273,12 @@ app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
     const cleaned = validCpfs.filter((cpf) => !blockedSet.has(cpf));
 
     const lines = ["cpf", ...cleaned];
+    await logEvent("clean", 200, {
+      processed: validCpfs.length,
+      total_input: validCpfs.length,
+      output_count: cleaned.length,
+      ip,
+    });
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
@@ -196,6 +289,7 @@ app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
+    await logEvent("clean", 500, { ip }, "Falha ao limpar mailing");
     res.status(500).json({ error: "Falha ao limpar mailing." });
   }
 });
