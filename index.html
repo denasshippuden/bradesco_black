@@ -85,15 +85,16 @@
     }
     .dashboard-info {
       position: absolute;
-      top: 10%;
-      right: 8%;
-      max-width: 460px;
+      top: 12%;
+      left: 6%;
+      max-width: 420px;
       color: #f5f7fb;
       text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
       opacity: 0;
       transform: translateY(10px);
       transition: opacity 180ms ease, transform 180ms ease;
       z-index: 2;
+      text-align: left;
     }
     body.dashboard .dashboard-info {
       opacity: 1;
@@ -110,10 +111,19 @@
       font-weight: 700;
     }
     .dashboard-info p {
-      margin: 0;
+      margin: 0 0 6px;
       line-height: 1.6;
       color: rgba(235, 241, 248, 0.9);
     }
+    .dashboard-info ul {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      color: rgba(235, 241, 248, 0.9);
+      line-height: 1.5;
+    }
+    .dashboard-info li + li { margin-top: 6px; }
+    .dashboard-info strong { color: #b7d4ff; }
     h1, h2 {
       margin: 0 0 10px;
       font-weight: 700;
@@ -249,8 +259,13 @@
     <section class="right">
       <div class="dashboard-info">
         <h1>Black-List Bradesco Vida</h1>
-        <h2>Introdu&ccedil;&atilde;o</h2>
-        <p>Adicionar importa CPFs para a tabela BlackList. Extrair gera a lista atual. Limpar compara sua planilha com a BlackList e remove os CPFs encontrados.</p>
+        <h2>O que voc&ecirc; faz aqui</h2>
+        <p>Gerencie rapidamente a Black-List e higienize mailings sem fric&ccedil;&atilde;o.</p>
+        <ul>
+          <li><strong>Adicionar:</strong> importe novos CPFs para a tabela BlackList.</li>
+          <li><strong>Extrair:</strong> baixe a lista atualizada.</li>
+          <li><strong>Limpar:</strong> compare seu mailing e remova CPFs bloqueados.</li>
+        </ul>
       </div>
       <div class="panel login-panel" id="login-card">
         <h1>Login</h1>
