@@ -83,47 +83,44 @@
       background: rgba(14, 16, 24, 0.9);
       border-color: rgba(255, 255, 255, 0.06);
     }
-    .dashboard-info {
+    .dashboard-title {
       position: absolute;
-      top: 12%;
-      left: 6%;
-      max-width: 420px;
+      top: 16px;
+      left: 20px;
+      font-size: 26px;
+      font-weight: 800;
       color: #f5f7fb;
-      text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
       opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 180ms ease, transform 180ms ease;
-      z-index: 2;
-      text-align: left;
+      transform: translateY(-6px);
+      transition: opacity 200ms ease, transform 200ms ease;
+      z-index: 3;
     }
-    body.dashboard .dashboard-info {
+    body.dashboard .dashboard-title {
       opacity: 1;
       transform: translateY(0);
     }
-    .dashboard-info h1 {
-      font-size: 30px;
-      margin: 0 0 8px;
-      font-weight: 800;
+    .actions-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 200ms ease, transform 200ms ease;
     }
-    .dashboard-info h2 {
-      color: #b7d4ff;
-      margin: 0 0 6px;
-      font-weight: 700;
+    body.dashboard .actions-wrap {
+      opacity: 1;
+      transform: translateY(0);
     }
-    .dashboard-info p {
-      margin: 0 0 6px;
-      line-height: 1.6;
-      color: rgba(235, 241, 248, 0.9);
+    .mascot {
+      width: 180px;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.35));
     }
-    .dashboard-info ul {
-      margin: 10px 0 0;
-      padding: 0;
-      list-style: none;
-      color: rgba(235, 241, 248, 0.9);
-      line-height: 1.5;
-    }
-    .dashboard-info li + li { margin-top: 6px; }
-    .dashboard-info strong { color: #b7d4ff; }
     h1, h2 {
       margin: 0 0 10px;
       font-weight: 700;
@@ -215,6 +212,49 @@
       border-color: rgba(94, 164, 255, 0.5);
       background: rgba(14, 23, 37, 0.9);
     }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+    .modal-backdrop.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      width: min(460px, 90vw);
+      background: rgba(255, 255, 255, 0.96);
+      color: #0f1726;
+      border-radius: 14px;
+      padding: 22px 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .modal h3 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .modal p { margin: 0 0 10px; line-height: 1.6; }
+    .modal button {
+      margin-top: 8px;
+      border: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #0f1726;
+      color: #f5f7fb;
+      cursor: pointer;
+      width: 100%;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
     .page-footer {
       position: fixed;
       left: 0;
@@ -257,16 +297,7 @@
   <div class="page">
     <section class="left"></section>
     <section class="right">
-      <div class="dashboard-info">
-        <h1>Black-List Bradesco Vida</h1>
-        <h2>O que voc&ecirc; faz aqui</h2>
-        <p>Gerencie rapidamente a Black-List e higienize mailings sem fric&ccedil;&atilde;o.</p>
-        <ul>
-          <li><strong>Adicionar:</strong> importe novos CPFs para a tabela BlackList.</li>
-          <li><strong>Extrair:</strong> baixe a lista atualizada.</li>
-          <li><strong>Limpar:</strong> compare seu mailing e remova CPFs bloqueados.</li>
-        </ul>
-      </div>
+      <div class="dashboard-title" id="dashboard-title">Black-List Bradesco Vida</div>
       <div class="panel login-panel" id="login-card">
         <h1>Login</h1>
         <form id="login-form">
@@ -278,23 +309,33 @@
         </form>
       </div>
 
-      <div class="panel dashboard-panel hidden" id="dashboard-panel">
-        <div class="actions">
-          <button class="action-btn" id="btn-add">
-            <strong>Adicionar a Black-List</strong>
-            <span>Importa CPFs para a tabela BlackList.</span>
-          </button>
-          <button class="action-btn" id="btn-export">
-            <strong>Extrair Black-List</strong>
-            <span>Exporta os dados armazenados.</span>
-          </button>
-          <button class="action-btn" id="btn-clean">
-            <strong>Limpar Mailing, Black-List</strong>
-            <span>Remove CPFs presentes na BlackList de sua planilha.</span>
-          </button>
+      <div class="actions-wrap hidden" id="actions-wrap">
+        <img class="mascot" src="assets/ave.png" alt="Am&eacute;rica Financeira">
+        <div class="panel dashboard-panel" id="dashboard-panel">
+          <div class="actions">
+            <button class="action-btn" id="btn-add">
+              <strong>Adicionar a Black-List</strong>
+              <span>Importa CPFs para a tabela BlackList.</span>
+            </button>
+            <button class="action-btn" id="btn-export">
+              <strong>Extrair Black-List</strong>
+              <span>Exporta os dados armazenados.</span>
+            </button>
+            <button class="action-btn" id="btn-clean">
+              <strong>Limpar Mailing, Black-List</strong>
+              <span>Remove CPFs presentes na BlackList de sua planilha.</span>
+            </button>
+          </div>
         </div>
       </div>
     </section>
+  </div>
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal">
+      <h3 id="modal-title"></h3>
+      <p id="modal-body"></p>
+      <button id="modal-close">Fechar</button>
+    </div>
   </div>
   <footer class="page-footer">
     <button class="ghost" id="btn-terms">Termos de uso</button>
@@ -308,21 +349,48 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       loginCard.classList.add("hidden");
-      dashboard.classList.remove("hidden");
+      document.getElementById("actions-wrap").classList.remove("hidden");
       document.body.classList.add("dashboard");
+      document.getElementById("dashboard-title").classList.remove("hidden");
     });
 
+    const modalBackdrop = document.getElementById("modal-backdrop");
+    const modalTitle = document.getElementById("modal-title");
+    const modalBody = document.getElementById("modal-body");
+    const closeModal = () => {
+      modalBackdrop.classList.remove("active");
+      modalBackdrop.classList.add("hidden");
+    };
+
+    const openModal = (title, body) => {
+      modalTitle.textContent = title;
+      modalBody.textContent = body;
+      modalBackdrop.classList.remove("hidden");
+      modalBackdrop.classList.add("active");
+    };
+
+    document.getElementById("modal-close").addEventListener("click", closeModal);
+    modalBackdrop.addEventListener("click", (e) => {
+      if (e.target === modalBackdrop) closeModal();
+    });
+
+    const copy = {
+      add: "Adicione novos CPFs à tabela BlackList. Use planilhas ou um arquivo com um CPF por linha para manter a lista sempre atualizada.",
+      export: "Exporte toda a BlackList em um arquivo atualizado. Ideal para auditoria ou integrações com outros sistemas.",
+      clean: "Envie seu mailing e limpe automaticamente todos os CPFs que já estão na BlackList, mantendo sua base segura e confiável."
+    };
+
     document.getElementById("btn-add").addEventListener("click", () => {
-      alert("Aqui voc\u00ea ir\u00e1 importar CPFs para a tabela BlackList.");
+      openModal("Adicionar a Black-List", copy.add);
     });
     document.getElementById("btn-export").addEventListener("click", () => {
-      alert("Aqui voc\u00ea ir\u00e1 extrair os dados da tabela BlackList.");
+      openModal("Extrair Black-List", copy.export);
     });
     document.getElementById("btn-clean").addEventListener("click", () => {
-      alert("Aqui voc\u00ea ir\u00e1 limpar sua planilha com base na BlackList.");
+      openModal("Limpar Mailing, Black-List", copy.clean);
     });
     document.getElementById("btn-terms").addEventListener("click", () => {
-      alert("Aqui vai abrir a tela/arte de termos de uso.");
+      openModal("Termos de uso", "Aqui voc\u00ea poder\u00e1 exibir os termos de uso completos da aplica\u00e7\u00e3o.");
     });
   </script>
 </body>
