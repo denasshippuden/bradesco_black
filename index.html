@@ -6,12 +6,12 @@
   <title>Painel Black-List</title>
   <style>
     :root {
-      --bg: #0c1117;
-      --panel: #151c24;
-      --accent: #e2435a;
-      --accent-2: #5ea4ff;
+      --panel: rgba(13, 18, 26, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --accent: #5ea4ff;
+      --accent-2: #e2435a;
       --text: #e8edf2;
-      --muted: #90a0b5;
+      --muted: #b5c2d4;
     }
     * { box-sizing: border-box; }
     body {
@@ -19,47 +19,95 @@
       min-height: 100vh;
       font-family: "Segoe UI", sans-serif;
       color: var(--text);
-      background: radial-gradient(circle at 15% 20%, #152031, #0c1117 40%), linear-gradient(135deg, #0c1117 40%, #0e1725);
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("assets/login-bg.png");
+      background-size: cover;
+      background-position: center;
+      z-index: -2;
+      transition: background-image 200ms ease-in-out;
+    }
+    body.dashboard::before {
+      background-image: url("assets/dashboard-bg.png");
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(6, 10, 15, 0.28) 0%, rgba(6, 10, 15, 0.42) 100%);
+      z-index: -1;
     }
     .page {
-      width: min(1200px, 100%);
       display: grid;
-      grid-template-columns: 35% 65%;
+      grid-template-columns: 45% 55%;
       min-height: 100vh;
     }
     .left {
-      padding: 48px 40px;
       display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 24px;
-      background: linear-gradient(145deg, rgba(21, 28, 36, 0.9), rgba(21, 28, 36, 0.5));
+      align-items: center;
+      padding: 48px 56px;
     }
-    .brand {
-      font-size: 20px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent-2);
-      font-weight: 700;
-    }
-    .card {
-      background: rgba(12, 17, 23, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    .brand-block {
+      background: rgba(10, 14, 22, 0.45);
+      border: 1px solid var(--panel-border);
       border-radius: 12px;
+      padding: 20px 22px;
+      backdrop-filter: blur(4px);
+      max-width: 360px;
+    }
+    .brand-title {
+      font-size: 22px;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+    .brand-sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+    .right {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 64px 56px;
+    }
+    .right::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.52));
+      opacity: 1;
+      transition: background 200ms ease;
+      z-index: 0;
+    }
+    body.dashboard .right::before {
+      background: rgba(0, 0, 0, 0.7);
+    }
+    .panel {
+      position: relative;
+      z-index: 1;
+      width: min(480px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
       padding: 28px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(8px);
-      transition: opacity 180ms ease, transform 180ms ease;
+      backdrop-filter: blur(10px);
     }
     h1, h2 {
-      margin: 0 0 12px;
+      margin: 0 0 10px;
       font-weight: 700;
     }
-    h1 { font-size: 24px; }
-    h2 { font-size: 20px; color: var(--accent-2); }
+    h1 { font-size: 26px; }
+    h2 { font-size: 18px; color: var(--accent); }
     label {
       display: block;
       margin: 12px 0 6px;
@@ -69,23 +117,23 @@
     input {
       width: 100%;
       padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
       color: var(--text);
       outline: none;
     }
     input:focus {
-      border-color: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.15);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.18);
     }
     .btn {
       width: 100%;
       padding: 12px 14px;
       margin-top: 16px;
       border: none;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent-2), #3d7ed9);
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #3d7ed9);
       color: #0b1220;
       font-weight: 700;
       cursor: pointer;
@@ -98,85 +146,82 @@
       font-size: 14px;
       line-height: 1.5;
     }
-    .right {
-      position: relative;
-      overflow: hidden;
-    }
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, rgba(226, 67, 90, 0.45), rgba(94, 164, 255, 0.35)), radial-gradient(circle at 80% 20%, rgba(94, 164, 255, 0.3), transparent 35%), #0e1725;
-      filter: blur(0px);
-      transform: scale(1.02);
-      z-index: 0;
-    }
-    .hero-bg::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      opacity: 0.4;
-      /* Substitua a URL abaixo quando tiver a imagem de fundo */
-      background-image: linear-gradient(140deg, rgba(0, 0, 0, 0.55), rgba(12, 17, 23, 0.65));
-    }
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 56px 48px;
-      gap: 20px;
-      color: #f5f8fb;
-    }
     .chip {
       display: inline-block;
       padding: 8px 12px;
       border-radius: 999px;
-      background: rgba(12, 17, 23, 0.25);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
       font-size: 12px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      margin-bottom: 12px;
     }
     .actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 12px;
     }
     .action-btn {
-      padding: 14px;
+      padding: 14px 16px;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(11, 18, 31, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
       color: var(--text);
       cursor: pointer;
       text-align: left;
       transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
-    .action-btn strong { display: block; margin-bottom: 6px; }
+    .action-btn strong { display: block; margin-bottom: 6px; font-size: 16px; }
     .action-btn span { color: var(--muted); font-size: 13px; }
     .action-btn:hover {
       transform: translateY(-2px);
       border-color: rgba(94, 164, 255, 0.5);
       background: rgba(14, 23, 37, 0.9);
     }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .ghost {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .ghost:hover {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    small { color: var(--muted); }
     .hidden { display: none; }
     @media (max-width: 960px) {
-      .page { grid-template-columns: 100%; }
-      .right { min-height: 60vh; }
+      .page { grid-template-columns: 1fr; }
+      .left { padding: 28px; justify-content: center; }
+      .right { min-height: 60vh; padding: 32px 24px; }
+      .panel { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <section class="left">
-      <div class="brand">Black Vida Bradesco</div>
-      <div class="card" id="login-card">
+      <div class="brand-block">
+        <p class="brand-title">Black Vida Bradesco</p>
+        <p class="brand-sub">Am&eacute;rica Financeira e Seguros</p>
+      </div>
+    </section>
+    <section class="right">
+      <div class="panel" id="login-card">
+        <span class="chip">Acesso</span>
         <h1>Login</h1>
         <form id="login-form">
           <label for="user">Usu&aacute;rio</label>
@@ -186,24 +231,13 @@
           <button class="btn" type="submit">Entrar</button>
         </form>
       </div>
-      <div class="card hidden" id="post-login">
-        <h2>Bem-vindo</h2>
+
+      <div class="panel hidden" id="dashboard-panel">
+        <span class="chip">Painel</span>
+        <h1>Black-List Bradesco Vida</h1>
+        <h2>Introdu&ccedil;&atilde;o</h2>
         <p class="muted">
-          Aqui voc&ecirc; pode adicionar, extrair ou limpar sua Black-List de forma r&aacute;pida.
-        </p>
-        <p class="muted">
-          Ajuste as frases acima quando quiser adicionar suas linhas de texto personalizadas.
-        </p>
-      </div>
-    </section>
-    <section class="right">
-      <div class="hero-bg"></div>
-      <div class="hero-content">
-        <span class="chip">Painel Black-List</span>
-        <h1>Gerencie listas e mailings sem atrito</h1>
-        <p class="muted">
-          Os bot&otilde;es abaixo ficam sobre a &aacute;rea de imagem esvaiecida. Substitua a arte de fundo
-          quando quiser usando a propriedade CSS indicada.
+          Adicionar importa CPFs para a tabela BlackList. Extrair gera a lista atual. Limpar compara sua planilha com a BlackList e remove os CPFs encontrados.
         </p>
         <div class="actions">
           <button class="action-btn" id="btn-add">
@@ -219,18 +253,23 @@
             <span>Remove CPFs presentes na BlackList de sua planilha.</span>
           </button>
         </div>
+        <div class="footer">
+          <button class="ghost" id="btn-terms">Termos de uso</button>
+          <small>Feito por Andr&eacute; Galante</small>
+        </div>
       </div>
     </section>
   </div>
   <script>
     const form = document.getElementById("login-form");
     const loginCard = document.getElementById("login-card");
-    const postLogin = document.getElementById("post-login");
+    const dashboard = document.getElementById("dashboard-panel");
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       loginCard.classList.add("hidden");
-      postLogin.classList.remove("hidden");
+      dashboard.classList.remove("hidden");
+      document.body.classList.add("dashboard");
     });
 
     document.getElementById("btn-add").addEventListener("click", () => {
@@ -241,6 +280,9 @@
     });
     document.getElementById("btn-clean").addEventListener("click", () => {
       alert("Aqui voc\u00ea ir\u00e1 limpar sua planilha com base na BlackList.");
+    });
+    document.getElementById("btn-terms").addEventListener("click", () => {
+      alert("Aqui vai abrir a tela/arte de termos de uso.");
     });
   </script>
 </body>
