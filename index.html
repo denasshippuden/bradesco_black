@@ -83,6 +83,37 @@
       background: rgba(14, 16, 24, 0.9);
       border-color: rgba(255, 255, 255, 0.06);
     }
+    .dashboard-info {
+      position: absolute;
+      top: 10%;
+      right: 8%;
+      max-width: 460px;
+      color: #f5f7fb;
+      text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      z-index: 2;
+    }
+    body.dashboard .dashboard-info {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .dashboard-info h1 {
+      font-size: 30px;
+      margin: 0 0 8px;
+      font-weight: 800;
+    }
+    .dashboard-info h2 {
+      color: #b7d4ff;
+      margin: 0 0 6px;
+      font-weight: 700;
+    }
+    .dashboard-info p {
+      margin: 0;
+      line-height: 1.6;
+      color: rgba(235, 241, 248, 0.9);
+    }
     h1, h2 {
       margin: 0 0 10px;
       font-weight: 700;
@@ -216,6 +247,11 @@
   <div class="page">
     <section class="left"></section>
     <section class="right">
+      <div class="dashboard-info">
+        <h1>Black-List Bradesco Vida</h1>
+        <h2>Introdu&ccedil;&atilde;o</h2>
+        <p>Adicionar importa CPFs para a tabela BlackList. Extrair gera a lista atual. Limpar compara sua planilha com a BlackList e remove os CPFs encontrados.</p>
+      </div>
       <div class="panel login-panel" id="login-card">
         <h1>Login</h1>
         <form id="login-form">
