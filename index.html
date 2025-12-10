@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Black-List</title>
+  <style>
+    :root {
+      --bg: #0c1117;
+      --panel: #151c24;
+      --accent: #e2435a;
+      --accent-2: #5ea4ff;
+      --text: #e8edf2;
+      --muted: #90a0b5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 20%, #152031, #0c1117 40%), linear-gradient(135deg, #0c1117 40%, #0e1725);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .page {
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: 35% 65%;
+      min-height: 100vh;
+    }
+    .left {
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+      background: linear-gradient(145deg, rgba(21, 28, 36, 0.9), rgba(21, 28, 36, 0.5));
+    }
+    .brand {
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+    .card {
+      background: rgba(12, 17, 23, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(8px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+    h1, h2 {
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; color: var(--accent-2); }
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.15);
+    }
+    .btn {
+      width: 100%;
+      padding: 12px 14px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-2), #3d7ed9);
+      color: #0b1220;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(94, 164, 255, 0.35); }
+    .btn:active { transform: translateY(0); }
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .right {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(226, 67, 90, 0.45), rgba(94, 164, 255, 0.35)), radial-gradient(circle at 80% 20%, rgba(94, 164, 255, 0.3), transparent 35%), #0e1725;
+      filter: blur(0px);
+      transform: scale(1.02);
+      z-index: 0;
+    }
+    .hero-bg::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0.4;
+      /* Substitua a URL abaixo quando tiver a imagem de fundo */
+      background-image: linear-gradient(140deg, rgba(0, 0, 0, 0.55), rgba(12, 17, 23, 0.65));
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 56px 48px;
+      gap: 20px;
+      color: #f5f8fb;
+    }
+    .chip {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(12, 17, 23, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .action-btn {
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(11, 18, 31, 0.65);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .action-btn strong { display: block; margin-bottom: 6px; }
+    .action-btn span { color: var(--muted); font-size: 13px; }
+    .action-btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(94, 164, 255, 0.5);
+      background: rgba(14, 23, 37, 0.9);
+    }
+    .hidden { display: none; }
+    @media (max-width: 960px) {
+      .page { grid-template-columns: 100%; }
+      .right { min-height: 60vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="left">
+      <div class="brand">Black Vida Bradesco</div>
+      <div class="card" id="login-card">
+        <h1>Login</h1>
+        <form id="login-form">
+          <label for="user">Usu&aacute;rio</label>
+          <input id="user" name="user" type="text" placeholder="Digite seu usu&aacute;rio" required>
+          <label for="pass">Senha</label>
+          <input id="pass" name="pass" type="password" placeholder="Digite sua senha" required>
+          <button class="btn" type="submit">Entrar</button>
+        </form>
+      </div>
+      <div class="card hidden" id="post-login">
+        <h2>Bem-vindo</h2>
+        <p class="muted">
+          Aqui voc&ecirc; pode adicionar, extrair ou limpar sua Black-List de forma r&aacute;pida.
+        </p>
+        <p class="muted">
+          Ajuste as frases acima quando quiser adicionar suas linhas de texto personalizadas.
+        </p>
+      </div>
+    </section>
+    <section class="right">
+      <div class="hero-bg"></div>
+      <div class="hero-content">
+        <span class="chip">Painel Black-List</span>
+        <h1>Gerencie listas e mailings sem atrito</h1>
+        <p class="muted">
+          Os bot&otilde;es abaixo ficam sobre a &aacute;rea de imagem esvaiecida. Substitua a arte de fundo
+          quando quiser usando a propriedade CSS indicada.
+        </p>
+        <div class="actions">
+          <button class="action-btn" id="btn-add">
+            <strong>Adicionar a Black-List</strong>
+            <span>Importa CPFs para a tabela BlackList.</span>
+          </button>
+          <button class="action-btn" id="btn-export">
+            <strong>Extrair Black-List</strong>
+            <span>Exporta os dados armazenados.</span>
+          </button>
+          <button class="action-btn" id="btn-clean">
+            <strong>Limpar Mailing, Black-List</strong>
+            <span>Remove CPFs presentes na BlackList de sua planilha.</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const form = document.getElementById("login-form");
+    const loginCard = document.getElementById("login-card");
+    const postLogin = document.getElementById("post-login");
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loginCard.classList.add("hidden");
+      postLogin.classList.remove("hidden");
+    });
+
+    document.getElementById("btn-add").addEventListener("click", () => {
+      alert("Aqui voc\u00ea ir\u00e1 importar CPFs para a tabela BlackList.");
+    });
+    document.getElementById("btn-export").addEventListener("click", () => {
+      alert("Aqui voc\u00ea ir\u00e1 extrair os dados da tabela BlackList.");
+    });
+    document.getElementById("btn-clean").addEventListener("click", () => {
+      alert("Aqui voc\u00ea ir\u00e1 limpar sua planilha com base na BlackList.");
+    });
+  </script>
+</body>
+</html>
