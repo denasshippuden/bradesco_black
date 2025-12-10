@@ -39,7 +39,7 @@
       content: "";
       position: fixed;
       inset: 0;
-      background: linear-gradient(90deg, rgba(6, 10, 15, 0.28) 0%, rgba(6, 10, 15, 0.42) 100%);
+      background: rgba(0, 0, 0, 0.28);
       z-index: -1;
     }
     .page {
@@ -47,31 +47,7 @@
       grid-template-columns: 45% 55%;
       min-height: 100vh;
     }
-    .left {
-      display: flex;
-      align-items: center;
-      padding: 48px 56px;
-    }
-    .brand-block {
-      background: rgba(10, 14, 22, 0.45);
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      padding: 20px 22px;
-      backdrop-filter: blur(4px);
-      max-width: 360px;
-    }
-    .brand-title {
-      font-size: 22px;
-      letter-spacing: 0.05em;
-      font-weight: 700;
-      margin: 0 0 6px;
-    }
-    .brand-sub {
-      margin: 0;
-      color: var(--muted);
-      font-size: 14px;
-      letter-spacing: 0.02em;
-    }
+    .left { padding: 32px 40px; }
     .right {
       position: relative;
       display: flex;
@@ -83,24 +59,21 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.52));
-      opacity: 1;
-      transition: background 200ms ease;
+      background: rgba(0, 0, 0, 0.3);
+      transition: opacity 200ms ease;
       z-index: 0;
     }
-    body.dashboard .right::before {
-      background: rgba(0, 0, 0, 0.7);
-    }
+    body.dashboard .right::before { opacity: 0.45; }
     .panel {
       position: relative;
       z-index: 1;
       width: min(480px, 100%);
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 28px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(10px);
+      background: rgba(14, 16, 24, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(6px);
     }
     h1, h2 {
       margin: 0 0 10px;
@@ -148,14 +121,14 @@
     }
     .chip {
       display: inline-block;
-      padding: 8px 12px;
+      padding: 6px 11px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--panel-border);
-      font-size: 12px;
-      letter-spacing: 0.08em;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 11px;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .actions {
       display: flex;
@@ -213,12 +186,7 @@
 </head>
 <body>
   <div class="page">
-    <section class="left">
-      <div class="brand-block">
-        <p class="brand-title">Black Vida Bradesco</p>
-        <p class="brand-sub">Am&eacute;rica Financeira e Seguros</p>
-      </div>
-    </section>
+    <section class="left"></section>
     <section class="right">
       <div class="panel" id="login-card">
         <span class="chip">Acesso</span>
