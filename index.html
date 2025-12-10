@@ -105,8 +105,9 @@
       position: relative;
       z-index: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 26px;
+      gap: 14px;
       justify-content: center;
       opacity: 0;
       transform: translateY(10px);
@@ -116,11 +117,35 @@
       opacity: 1;
       transform: translateY(0);
     }
-    .mascot {
-      width: 180px;
+    .eagle-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.12);
+      color: #f7f9fb;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+    .eagle-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.26);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4);
+    }
+    .eagle-btn img {
+      width: 120px;
       height: auto;
       object-fit: contain;
-      filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.35));
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+    }
+    .eagle-btn span {
+      font-weight: 800;
+      letter-spacing: 0.02em;
     }
     h1, h2 {
       margin: 0 0 10px;
@@ -194,13 +219,33 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      margin-top: 12px;
+      margin-top: 4px;
+    }
+    .actions-panel {
+      width: min(480px, 90vw);
+      background: rgba(20, 26, 36, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 18px 18px 20px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transform: translateY(-6px);
+      transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
+    }
+    .actions-wrap.open .actions-panel {
+      max-height: 600px;
+      opacity: 1;
+      transform: translateY(0);
+      overflow: visible;
     }
     .action-btn {
       padding: 14px 16px;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.12);
       color: var(--text);
       cursor: pointer;
       text-align: left;
@@ -211,7 +256,7 @@
     .action-btn:hover {
       transform: translateY(-2px);
       border-color: rgba(94, 164, 255, 0.5);
-      background: rgba(14, 23, 37, 0.9);
+      background: rgba(255, 255, 255, 0.18);
     }
     .modal-backdrop {
       position: fixed;
@@ -311,8 +356,11 @@
       </div>
 
       <div class="actions-wrap hidden" id="actions-wrap">
-        <img class="mascot" src="assets/ave.png" alt="Am&eacute;rica Financeira">
-        <div class="panel dashboard-panel" id="dashboard-panel">
+        <button class="eagle-btn" id="toggle-actions" type="button">
+          <img src="assets/ave.png" alt="Am&eacute;rica Financeira">
+          <span>Black-List Bradesco Vida</span>
+        </button>
+        <div class="actions-panel" id="dashboard-panel">
           <div class="actions">
             <button class="action-btn" id="btn-add">
               <strong>Adicionar a Black-List</strong>
@@ -373,6 +421,11 @@
     document.getElementById("modal-close").addEventListener("click", closeModal);
     modalBackdrop.addEventListener("click", (e) => {
       if (e.target === modalBackdrop) closeModal();
+    });
+
+    const actionsWrap = document.getElementById("actions-wrap");
+    document.getElementById("toggle-actions").addEventListener("click", () => {
+      actionsWrap.classList.toggle("open");
     });
 
     const copy = {
