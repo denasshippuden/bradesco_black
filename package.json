@@ -1,0 +1,27 @@
+{
+  "name": "black_vida_bradesco",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/denasshippuden/bradesco_black.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/denasshippuden/bradesco_black/issues"
+  },
+  "homepage": "https://github.com/denasshippuden/bradesco_black#readme",
+  "description": "",
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3"
+  }
+}

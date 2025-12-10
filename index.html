@@ -382,23 +382,24 @@
   <div class="modal-backdrop hidden" id="modal-backdrop">
     <div class="modal">
       <h3 id="modal-title"></h3>
-      <p id="modal-body"></p>
+      <div id="modal-body"></div>
       <button id="modal-close">Fechar</button>
     </div>
   </div>
   <footer class="page-footer">
     <button class="ghost" id="btn-terms">Termos de uso</button>
-    <small>Feito por Denaldinhoo</small>
+    <small>Feito por Andr&eacute; Galante</small>
   </footer>
-  <script>
+      <script>
+    const API_BASE = "";
     const form = document.getElementById("login-form");
     const loginCard = document.getElementById("login-card");
-    const dashboard = document.getElementById("dashboard-panel");
+    const actionsWrap = document.getElementById("actions-wrap");
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       loginCard.classList.add("hidden");
-      document.getElementById("actions-wrap").classList.remove("hidden");
+      actionsWrap.classList.remove("hidden");
       document.body.classList.add("dashboard");
       document.getElementById("dashboard-title").classList.remove("hidden");
     });
@@ -411,9 +412,9 @@
       modalBackdrop.classList.add("hidden");
     };
 
-    const openModal = (title, body) => {
+    const openModal = (title, bodyHtml) => {
       modalTitle.textContent = title;
-      modalBody.textContent = body;
+      modalBody.innerHTML = bodyHtml;
       modalBackdrop.classList.remove("hidden");
       modalBackdrop.classList.add("active");
     };
@@ -423,29 +424,126 @@
       if (e.target === modalBackdrop) closeModal();
     });
 
-    const actionsWrap = document.getElementById("actions-wrap");
     document.getElementById("toggle-actions").addEventListener("click", () => {
       actionsWrap.classList.toggle("open");
     });
 
-    const copy = {
-      add: "Adicione novos CPFs à tabela BlackList. Use planilhas ou um arquivo com um CPF por linha para manter a lista sempre atualizada.",
-      export: "Exporte toda a BlackList em um arquivo atualizado. Ideal para auditoria ou integrações com outros sistemas.",
-      clean: "Envie seu mailing e limpe automaticamente todos os CPFs que já estão na BlackList, mantendo sua base segura e confiável."
+    const createFileInput = () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".csv,text/csv";
+      input.style.display = "none";
+      document.body.appendChild(input);
+      return input;
     };
 
-    document.getElementById("btn-add").addEventListener("click", () => {
-      openModal("Adicionar a Black-List", copy.add);
-    });
-    document.getElementById("btn-export").addEventListener("click", () => {
-      openModal("Extrair Black-List", copy.export);
-    });
-    document.getElementById("btn-clean").addEventListener("click", () => {
-      openModal("Limpar Mailing, Black-List", copy.clean);
-    });
+    const fileInputs = {
+      import: createFileInput(),
+      clean: createFileInput(),
+    };
+
+    const pickFile = (key) =>
+      new Promise((resolve, reject) => {
+        const input = fileInputs[key];
+        input.onchange = () => {
+          const [file] = input.files;
+          input.value = "";
+          if (!file) return reject(new Error("Nenhum arquivo selecionado."));
+          resolve(file);
+        };
+        input.click();
+      });
+
+    const downloadBlob = (blob, filename) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    const handleImport = async () => {
+      const file = await pickFile("import");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/api/blacklist/import`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Falha ao importar Black-List.");
+      }
+      openModal(
+        "Importar Black-List",
+        `<p>Processados: ${data.processed ?? "-"}</p>
+         <p>Inseridos: ${data.inserted ?? "-"}</p>
+         <p>Duplicados: ${data.duplicates ?? "-"}</p>
+         <p>Invalidos: ${data.invalid ?? "-"}</p>`
+      );
+    };
+
+    const handleExport = async () => {
+      const res = await fetch(`${API_BASE}/api/blacklist/export`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Falha ao exportar Black-List.");
+      }
+      const blob = await res.blob();
+      downloadBlob(blob, "blacklist.csv");
+      openModal("Exportar Black-List", "Arquivo exportado com sucesso.");
+    };
+
+    const handleClean = async () => {
+      const file = await pickFile("clean");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/api/blacklist/clean`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Falha ao limpar mailing.");
+      }
+      const blob = await res.blob();
+      const kept = res.headers.get("X-Records-Filtered");
+      const total = res.headers.get("X-Records-Input");
+      downloadBlob(blob, "mailing_limpo.csv");
+      openModal(
+        "Mailing limpo",
+        `Arquivo gerado com sucesso.<br>Registros recebidos: ${total || "-"}<br>Registros liberados: ${kept || "-"}`
+      );
+    };
+
+    const termsCopy =
+      "Aqui voce podera exibir os termos de uso completos da aplicacao.";
+
+    const safely = (fn) => async () => {
+      try {
+        await fn();
+      } catch (err) {
+        openModal("Erro", err.message || "Algo deu errado.");
+      }
+    };
+
+    document
+      .getElementById("btn-add")
+      .addEventListener("click", safely(handleImport));
+    document
+      .getElementById("btn-export")
+      .addEventListener("click", safely(handleExport));
+    document
+      .getElementById("btn-clean")
+      .addEventListener("click", safely(handleClean));
     document.getElementById("btn-terms").addEventListener("click", () => {
-      openModal("Termos de uso", "Aqui voc\u00ea poder\u00e1 exibir os termos de uso completos da aplica\u00e7\u00e3o.");
+      openModal("Termos de uso", termsCopy);
     });
   </script>
 </body>
 </html>
+
+
