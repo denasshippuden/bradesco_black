@@ -16,11 +16,38 @@ const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.warn("DATABASE_URL não configurada. Configure no .env.");
 }
+const SCHEMA = process.env.PGSCHEMA || "blacklists";
+const TABLE = `${SCHEMA}.blacklist`;
+const LOG_TABLE = `${SCHEMA}.blacklist_log`;
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: process.env.PGSSL === "false" ? false : { rejectUnauthorized: false },
 });
+
+const BLACKLIST_TABLE_DEFINITION = `
+  CREATE TABLE IF NOT EXISTS ${TABLE} (
+    cpf TEXT PRIMARY KEY,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`;
+
+const LOG_TABLE_DEFINITION = `
+  CREATE TABLE IF NOT EXISTS ${LOG_TABLE} (
+    id SERIAL PRIMARY KEY,
+    action TEXT,
+    status INT,
+    message TEXT,
+    processed INT,
+    inserted INT,
+    duplicates INT,
+    invalid INT,
+    total_input INT,
+    output_count INT,
+    ip INET,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`;
 
 const PORT = process.env.PORT || 3000;
 const CPF_HEADER = new Set(["cpf"]);
@@ -32,6 +59,48 @@ const ensureLogDir = () => {
   if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
 };
 ensureLogDir();
+
+const ensurePool = () => {
+  if (!DATABASE_URL) {
+    const error = new Error("DATABASE_URL nao configurada.");
+    error.status = 500;
+    throw error;
+  }
+};
+
+const prepareConnection = async (client) => {
+  await client.query(`CREATE SCHEMA IF NOT EXISTS ${SCHEMA}`);
+  await client.query(BLACKLIST_TABLE_DEFINITION);
+  await client.query(LOG_TABLE_DEFINITION);
+  await client
+    .query(`SET search_path TO ${SCHEMA}, public`)
+    .catch((err) => console.error("Falha ao definir search_path:", err));
+};
+
+let dbReadyPromise;
+const ensureDatabaseReady = async () => {
+  ensurePool();
+  if (!dbReadyPromise) {
+    dbReadyPromise = pool
+      .connect()
+      .then(async (client) => {
+        try {
+          await prepareConnection(client);
+        } finally {
+          client.release();
+        }
+      })
+      .catch((err) => {
+        dbReadyPromise = null;
+        throw err;
+      });
+  }
+  return dbReadyPromise;
+};
+
+ensureDatabaseReady().catch((err) =>
+  console.error("Falha ao preparar banco na inicializacao:", err)
+);
 
 const logEvent = async (action, status, meta = {}, message = "") => {
   const line = {
@@ -47,22 +116,7 @@ const logEvent = async (action, status, meta = {}, message = "") => {
     console.error("Erro ao gravar log em arquivo:", err);
   }
   try {
-    await pool.query(
-      `CREATE TABLE IF NOT EXISTS blacklist_log (
-         id SERIAL PRIMARY KEY,
-         action TEXT,
-         status INT,
-         message TEXT,
-         processed INT,
-         inserted INT,
-         duplicates INT,
-         invalid INT,
-         total_input INT,
-         output_count INT,
-         ip INET,
-         created_at TIMESTAMP DEFAULT NOW()
-       )`
-    );
+    await ensureDatabaseReady();
     const fields = {
       processed: meta.processed ?? null,
       inserted: meta.inserted ?? null,
@@ -73,7 +127,7 @@ const logEvent = async (action, status, meta = {}, message = "") => {
       ip: meta.ip || null,
     };
     await pool.query(
-      `INSERT INTO blacklist_log
+      `INSERT INTO ${LOG_TABLE}
        (action, status, message, processed, inserted, duplicates, invalid, total_input, output_count, ip)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
@@ -128,21 +182,13 @@ const extractCpfsFromCsv = (buffer) => {
     .filter(Boolean);
 };
 
-const ensurePool = () => {
-  if (!DATABASE_URL) {
-    const error = new Error("DATABASE_URL não configurada.");
-    error.status = 500;
-    throw error;
-  }
-};
-
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
   const ip = req.ip;
   try {
-    ensurePool();
+    await ensureDatabaseReady();
     if (!req.file) {
       return res.status(400).json({ error: "Envie um arquivo CSV." });
     }
@@ -166,7 +212,7 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
     try {
       await client.query("BEGIN");
       const existing = await client.query(
-        "SELECT cpf FROM blacklist WHERE cpf = ANY($1)",
+        `SELECT cpf FROM ${TABLE} WHERE cpf = ANY($1)`,
         [validCpfs]
       );
       const existingSet = new Set(existing.rows.map((r) => r.cpf));
@@ -175,7 +221,7 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
       const newCpfs = validCpfs.filter((cpf) => !existingSet.has(cpf));
       if (newCpfs.length) {
         const insertResult = await client.query(
-          "INSERT INTO blacklist (cpf, updated_at) SELECT unnest($1::text[]), NOW() ON CONFLICT (cpf) DO NOTHING",
+          `INSERT INTO ${TABLE} (cpf, updated_at) SELECT unnest($1::text[]), NOW() ON CONFLICT (cpf) DO NOTHING`,
           [newCpfs]
         );
         inserted = insertResult.rowCount || 0;
@@ -183,7 +229,7 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
 
       // Atualiza updated_at de todos os válidos (incluindo já existentes)
       await client.query(
-        "UPDATE blacklist SET updated_at = NOW() WHERE cpf = ANY($1)",
+        `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = ANY($1)`,
         [validCpfs]
       );
 
@@ -219,9 +265,9 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
 app.get("/api/blacklist/export", async (req, res) => {
   const ip = req.ip;
   try {
-    ensurePool();
+    await ensureDatabaseReady();
     const result = await pool.query(
-      "SELECT cpf FROM blacklist ORDER BY updated_at DESC"
+      `SELECT cpf FROM ${TABLE} ORDER BY updated_at DESC`
     );
     const lines = ["cpf", ...result.rows.map((r) => r.cpf)];
     await logEvent("export", 200, {
@@ -245,7 +291,7 @@ app.get("/api/blacklist/export", async (req, res) => {
 app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
   const ip = req.ip;
   try {
-    ensurePool();
+    await ensureDatabaseReady();
     if (!req.file) {
       return res.status(400).json({ error: "Envie um arquivo CSV." });
     }
@@ -266,7 +312,7 @@ app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
     }
 
     const blocked = await pool.query(
-      "SELECT cpf FROM blacklist WHERE cpf = ANY($1)",
+      `SELECT cpf FROM ${TABLE} WHERE cpf = ANY($1)`,
       [validCpfs]
     );
     const blockedSet = new Set(blocked.rows.map((r) => r.cpf));
