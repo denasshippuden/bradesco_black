@@ -340,6 +340,12 @@ app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+// Quando rodando localmente, suba o servidor HTTP. Em ambiente serverless (Vercel),
+// apenas exportamos o app e deixamos a plataforma cuidar do handler.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando em http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
