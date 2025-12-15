@@ -2,11 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const multer = require("multer");
 const { parse } = require("csv-parse/sync");
 const { Pool } = require("pg");
 
 const app = express();
+app.disable("x-powered-by");
+app.set("trust proxy", true);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
@@ -19,6 +22,8 @@ if (!DATABASE_URL) {
 const SCHEMA = process.env.PGSCHEMA || "blacklists";
 const TABLE = `${SCHEMA}.blacklist`;
 const LOG_TABLE = `${SCHEMA}.blacklist_log`;
+const AUTH_USER = process.env.LOGIN_USER || process.env.ADMIN_USER;
+const AUTH_PASS = process.env.LOGIN_PASS || process.env.ADMIN_PASS;
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -54,6 +59,11 @@ const CPF_HEADER = new Set(["cpf"]);
 
 const LOG_DIR = path.join(__dirname, "logs");
 const LOG_FILE = path.join(LOG_DIR, "app.log");
+const parsedTtl = Number(process.env.SESSION_TTL_MS);
+const SESSION_TTL_MS = Number.isFinite(parsedTtl)
+  ? parsedTtl
+  : 30 * 60 * 1000;
+const activeTokens = new Map();
 
 const ensureLogDir = () => {
   if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
@@ -148,6 +158,50 @@ const logEvent = async (action, status, meta = {}, message = "") => {
   }
 };
 
+const pruneExpiredTokens = () => {
+  const now = Date.now();
+  for (const [token, expiresAt] of activeTokens.entries()) {
+    if (expiresAt <= now) {
+      activeTokens.delete(token);
+    }
+  }
+};
+
+const createSession = () => {
+  pruneExpiredTokens();
+  const token = crypto.randomBytes(24).toString("hex");
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  activeTokens.set(token, expiresAt);
+  return { token, expiresAt };
+};
+
+const requireAuth = async (req, res, next) => {
+  pruneExpiredTokens();
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const expiresAt = token ? activeTokens.get(token) : null;
+
+  if (!token || !expiresAt) {
+    await logEvent("auth", 401, { ip: req.ip }, "Token ausente ou invalido");
+    return res
+      .status(401)
+      .json({ error: "Sessao expirada ou nao autenticada." });
+  }
+
+  if (expiresAt <= Date.now()) {
+    activeTokens.delete(token);
+    await logEvent("auth", 401, { ip: req.ip }, "Token expirado");
+    return res
+      .status(401)
+      .json({ error: "Sessao expirada ou nao autenticada." });
+  }
+
+  req.auth = { token, expiresAt };
+  next();
+};
+
 const normalizeCpf = (value = "") => value.replace(/\D/g, "");
 const isValidCpf = (cpf) => cpf.length === 11;
 
@@ -183,9 +237,60 @@ const extractCpfsFromCsv = (buffer) => {
 };
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(
+  "/assets",
+  express.static(path.join(__dirname, "assets"), {
+    dotfiles: "deny",
+    etag: true,
+    maxAge: "1d",
+  })
+);
 
-app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
+const sendIndex = (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+};
+
+app.get("/", sendIndex);
+app.get("/index.html", sendIndex);
+
+app.post("/api/login", async (req, res) => {
+  const { user, pass } = req.body || {};
+  const ip = req.ip;
+  if (!AUTH_USER || !AUTH_PASS) {
+    await logEvent("login", 500, { ip }, "Login nao configurado");
+    return res
+      .status(500)
+      .json({ error: "Login nao configurado no servidor (.env)." });
+  }
+  if (!user || !pass) {
+    await logEvent("login", 400, { ip }, "Credenciais incompletas");
+    return res
+      .status(400)
+      .json({ error: "Usuario e senha sao obrigatorios." });
+  }
+
+  const success = user === AUTH_USER && pass === AUTH_PASS;
+  if (!success) {
+    await logEvent("login", 401, { ip }, "Credenciais invalidas");
+    return res.status(401).json({ error: "Credenciais invalidas." });
+  }
+
+  const session = createSession();
+  const expiresIso = new Date(session.expiresAt).toISOString();
+  await logEvent("login", 200, { ip, expiresAt: expiresIso });
+  return res.json({
+    ok: true,
+    token: session.token,
+    expiresAt: expiresIso,
+    expiresInMs: SESSION_TTL_MS,
+  });
+});
+
+app.post(
+  "/api/blacklist/import",
+  requireAuth,
+  upload.single("file"),
+  async (req, res) => {
   const ip = req.ip;
   try {
     await ensureDatabaseReady();
@@ -262,7 +367,7 @@ app.post("/api/blacklist/import", upload.single("file"), async (req, res) => {
   }
 });
 
-app.get("/api/blacklist/export", async (req, res) => {
+app.get("/api/blacklist/export", requireAuth, async (req, res) => {
   const ip = req.ip;
   try {
     await ensureDatabaseReady();
@@ -288,7 +393,11 @@ app.get("/api/blacklist/export", async (req, res) => {
   }
 });
 
-app.post("/api/blacklist/clean", upload.single("file"), async (req, res) => {
+app.post(
+  "/api/blacklist/clean",
+  requireAuth,
+  upload.single("file"),
+  async (req, res) => {
   const ip = req.ip;
   try {
     await ensureDatabaseReady();

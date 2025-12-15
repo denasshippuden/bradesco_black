@@ -204,6 +204,12 @@
       font-size: 14px;
       line-height: 1.5;
     }
+    .login-feedback {
+      margin-top: 10px;
+      color: #e2435a;
+      font-size: 13px;
+      min-height: 18px;
+    }
     .chip {
       display: inline-block;
       padding: 6px 11px;
@@ -352,6 +358,7 @@
           <label for="pass">Senha</label>
           <input id="pass" name="pass" type="password" placeholder="Digite sua senha" required>
           <button class="btn" type="submit">Entrar</button>
+          <div class="login-feedback hidden" id="login-feedback"></div>
         </form>
       </div>
 
@@ -391,17 +398,75 @@
     <small>Feito por Andr&eacute; Galante</small>
   </footer>
       <script>
-    const API_BASE = "";
+    const API_BASE = window.API_BASE || "";
+    const apiUrl = (path) =>
+      `${API_BASE}`.replace(/\/$/, "") + path;
     const form = document.getElementById("login-form");
     const loginCard = document.getElementById("login-card");
     const actionsWrap = document.getElementById("actions-wrap");
+    const loginFeedback = document.getElementById("login-feedback");
+    const loginButton = form.querySelector('button[type="submit"]');
+    const dashboardTitle = document.getElementById("dashboard-title");
+    let authToken = "";
 
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
+    const authHeaders = () =>
+      authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const ensureLoggedIn = () => {
+      if (!authToken) {
+        throw new Error("Sessao expirada, faca login novamente.");
+      }
+    };
+
+    const setDashboardVisible = () => {
       loginCard.classList.add("hidden");
       actionsWrap.classList.remove("hidden");
       document.body.classList.add("dashboard");
-      document.getElementById("dashboard-title").classList.remove("hidden");
+      dashboardTitle.classList.remove("hidden");
+    };
+
+    const setLoginFeedback = (message = "") => {
+      loginFeedback.textContent = message;
+      loginFeedback.classList.toggle("hidden", !message);
+    };
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setLoginFeedback("");
+      const payload = {
+        user: form.user.value.trim(),
+        pass: form.pass.value,
+      };
+
+      if (!payload.user || !payload.pass) {
+        setLoginFeedback("Informe usuario e senha.");
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.textContent = "Entrando...";
+      try {
+        const res = await fetch(apiUrl("/api/login"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "Nao foi possivel fazer login.");
+        }
+
+        if (!data.token) {
+          throw new Error("Resposta de login invalida.");
+        }
+
+        authToken = data.token;
+        setDashboardVisible();
+      } catch (err) {
+        setLoginFeedback(err.message || "Falha ao fazer login.");
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Entrar";
+      }
     });
 
     const modalBackdrop = document.getElementById("modal-backdrop");
@@ -469,8 +534,12 @@
       const file = await pickFile("import");
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/api/blacklist/import`, {
+      ensureLoggedIn();
+      const res = await fetch(apiUrl("/api/blacklist/import"), {
         method: "POST",
+        headers: {
+          ...authHeaders(),
+        },
         body: formData,
       });
       const data = await res.json().catch(() => ({}));
@@ -487,7 +556,12 @@
     };
 
     const handleExport = async () => {
-      const res = await fetch(`${API_BASE}/api/blacklist/export`);
+      ensureLoggedIn();
+      const res = await fetch(apiUrl("/api/blacklist/export"), {
+        headers: {
+          ...authHeaders(),
+        },
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Falha ao exportar Black-List.");
@@ -501,8 +575,12 @@
       const file = await pickFile("clean");
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/api/blacklist/clean`, {
+      ensureLoggedIn();
+      const res = await fetch(apiUrl("/api/blacklist/clean"), {
         method: "POST",
+        headers: {
+          ...authHeaders(),
+        },
         body: formData,
       });
       if (!res.ok) {
@@ -545,5 +623,3 @@
   </script>
 </body>
 </html>
-
-
