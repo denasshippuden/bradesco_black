@@ -1,0 +1,3 @@
+{"ts":"2025-12-10T20:45:23.264Z","action":"clean","status":500,"message":"Falha ao limpar mailing","ip":"::1"}
+{"ts":"2025-12-10T20:46:39.403Z","action":"clean","status":500,"message":"Falha ao limpar mailing","ip":"::1"}
+{"ts":"2025-12-10T20:54:01.223Z","action":"clean","status":200,"message":"","processed":2,"total_input":2,"output_count":2,"ip":"::1"}
