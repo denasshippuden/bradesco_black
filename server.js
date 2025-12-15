@@ -24,6 +24,7 @@ const TABLE = `${SCHEMA}.blacklist`;
 const LOG_TABLE = `${SCHEMA}.blacklist_log`;
 const AUTH_USER = process.env.LOGIN_USER || process.env.ADMIN_USER;
 const AUTH_PASS = process.env.LOGIN_PASS || process.env.ADMIN_PASS;
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.SESSION_SECRET || "";
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -63,7 +64,6 @@ const parsedTtl = Number(process.env.SESSION_TTL_MS);
 const SESSION_TTL_MS = Number.isFinite(parsedTtl)
   ? parsedTtl
   : 30 * 60 * 1000;
-const activeTokens = new Map();
 
 const ensureLogDir = () => {
   if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
@@ -158,47 +158,72 @@ const logEvent = async (action, status, meta = {}, message = "") => {
   }
 };
 
-const pruneExpiredTokens = () => {
-  const now = Date.now();
-  for (const [token, expiresAt] of activeTokens.entries()) {
-    if (expiresAt <= now) {
-      activeTokens.delete(token);
-    }
+const assertAuthConfigured = () => {
+  if (!AUTH_USER || !AUTH_PASS) {
+    return "Login nao configurado no servidor (.env).";
   }
+  if (!AUTH_SECRET) {
+    return "AUTH_SECRET nao configurado no servidor (.env).";
+  }
+  return "";
 };
 
 const createSession = () => {
-  pruneExpiredTokens();
-  const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = Date.now() + SESSION_TTL_MS;
-  activeTokens.set(token, expiresAt);
-  return { token, expiresAt };
+  const payload = { user: AUTH_USER, exp: expiresAt };
+  const base = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto
+    .createHmac("sha256", AUTH_SECRET)
+    .update(base)
+    .digest("base64url");
+  return { token: `${base}.${sig}`, expiresAt };
+};
+
+const verifySession = (token = "") => {
+  if (!AUTH_SECRET) return null;
+  if (!token.includes(".")) return null;
+  const [base, sig] = token.split(".");
+  if (!base || !sig) return null;
+  const expected = crypto
+    .createHmac("sha256", AUTH_SECRET)
+    .update(base)
+    .digest("base64url");
+  if (
+    expected.length !== sig.length ||
+    !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
+  ) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(base, "base64url").toString());
+    if (!payload.exp || payload.exp <= Date.now()) return null;
+    return payload;
+  } catch (_err) {
+    return null;
+  }
 };
 
 const requireAuth = async (req, res, next) => {
-  pruneExpiredTokens();
+  if (!AUTH_SECRET) {
+    await logEvent("auth", 500, { ip: req.ip }, "AUTH_SECRET nao configurado");
+    return res
+      .status(500)
+      .json({ error: "AUTH_SECRET nao configurado no servidor." });
+  }
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7).trim()
     : "";
-  const expiresAt = token ? activeTokens.get(token) : null;
+  const payload = token ? verifySession(token) : null;
 
-  if (!token || !expiresAt) {
-    await logEvent("auth", 401, { ip: req.ip }, "Token ausente ou invalido");
+  if (!payload) {
+    await logEvent("auth", 401, { ip: req.ip }, "Token ausente, invalido ou expirado");
     return res
       .status(401)
       .json({ error: "Sessao expirada ou nao autenticada." });
   }
 
-  if (expiresAt <= Date.now()) {
-    activeTokens.delete(token);
-    await logEvent("auth", 401, { ip: req.ip }, "Token expirado");
-    return res
-      .status(401)
-      .json({ error: "Sessao expirada ou nao autenticada." });
-  }
-
-  req.auth = { token, expiresAt };
+  req.auth = payload;
   next();
 };
 
@@ -236,7 +261,20 @@ const extractCpfsFromCsv = (buffer) => {
     .filter(Boolean);
 };
 
-app.use(express.json());
+app.use(
+  express.json({
+    limit: "1mb",
+  })
+);
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.parse.failed" || err instanceof SyntaxError) {
+    logEvent("request", 400, { ip: req.ip }, "JSON invalido");
+    return res
+      .status(400)
+      .json({ error: "JSON invalido no corpo da requisicao." });
+  }
+  next(err);
+});
 app.use(
   "/assets",
   express.static(path.join(__dirname, "assets"), {
@@ -256,11 +294,10 @@ app.get("/index.html", sendIndex);
 app.post("/api/login", async (req, res) => {
   const { user, pass } = req.body || {};
   const ip = req.ip;
-  if (!AUTH_USER || !AUTH_PASS) {
-    await logEvent("login", 500, { ip }, "Login nao configurado");
-    return res
-      .status(500)
-      .json({ error: "Login nao configurado no servidor (.env)." });
+  const configError = assertAuthConfigured();
+  if (configError) {
+    await logEvent("login", 500, { ip }, configError);
+    return res.status(500).json({ error: configError });
   }
   if (!user || !pass) {
     await logEvent("login", 400, { ip }, "Credenciais incompletas");
@@ -372,7 +409,7 @@ app.get("/api/blacklist/export", requireAuth, async (req, res) => {
   try {
     await ensureDatabaseReady();
     const result = await pool.query(
-      `SELECT cpf FROM ${TABLE} ORDER BY updated_at DESC`
+      `SELECT b.cpf FROM ${TABLE} b ORDER BY b.updated_at DESC`
     );
     const lines = ["cpf", ...result.rows.map((r) => r.cpf)];
     await logEvent("export", 200, {

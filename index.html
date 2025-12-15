@@ -605,10 +605,14 @@
       const blob = await res.blob();
       const kept = res.headers.get("X-Records-Filtered");
       const total = res.headers.get("X-Records-Input");
+      const removed =
+        kept && total ? Math.max(Number(total) - Number(kept), 0) : null;
       downloadBlob(blob, "mailing_limpo.csv");
       openModal(
         "Mailing limpo",
-        `Arquivo gerado com sucesso.<br>Registros recebidos: ${total || "-"}<br>Registros liberados: ${kept || "-"}`
+        `Arquivo gerado com sucesso.<br>Recebidos: ${total || "-"}<br>Liberados: ${kept || "-"}${
+          removed !== null ? `<br>Removidos da blacklist: ${removed}` : ""
+        }`
       );
     };
 
