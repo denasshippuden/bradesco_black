@@ -35,9 +35,13 @@ const AUTH_SECRET =
         .digest("hex")
     : "");
 
+const sslEnv = (process.env.PGSSL || "").toLowerCase();
+const useSsl =
+  sslEnv === "true" || sslEnv === "1" || sslEnv === "yes" || sslEnv === "on";
+
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: process.env.PGSSL === "false" ? false : { rejectUnauthorized: false },
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
 const BLACKLIST_TABLE_DEFINITION = `
