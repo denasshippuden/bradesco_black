@@ -24,7 +24,16 @@ const TABLE = `${SCHEMA}.blacklist`;
 const LOG_TABLE = `${SCHEMA}.blacklist_log`;
 const AUTH_USER = process.env.LOGIN_USER || process.env.ADMIN_USER;
 const AUTH_PASS = process.env.LOGIN_PASS || process.env.ADMIN_PASS;
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.SESSION_SECRET || "";
+const AUTH_SECRET =
+  process.env.AUTH_SECRET ||
+  process.env.SESSION_SECRET ||
+  // fallback para nao bloquear login se esquecer de configurar (use um valor forte em prod)
+  (AUTH_USER && AUTH_PASS
+    ? crypto
+        .createHash("sha256")
+        .update(`${AUTH_USER}:${AUTH_PASS}`)
+        .digest("hex")
+    : "");
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
