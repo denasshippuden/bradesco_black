@@ -498,9 +498,9 @@ app.post(
 // Quando rodando localmente, suba o servidor HTTP. Em ambiente serverless (Vercel),
 // apenas exportamos o app e deixamos a plataforma cuidar do handler.
 if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-  });
-}
+  app.listen(PORT, "0.0.0.0", () => 
+    console.log(`Rodando na porta ${PORT}`));
+  };
+
 
 module.exports = app;
