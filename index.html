@@ -429,6 +429,23 @@
       loginFeedback.classList.toggle("hidden", !message);
     };
 
+    const buildHttpError = async (res, fallback) => {
+      let data = null;
+      try {
+        data = await res.clone().json();
+      } catch (_) {
+        /* ignore parse errors */
+      }
+      const msg =
+        (data && (data.error || data.message)) ||
+        fallback ||
+        (res.status ? `Erro ${res.status} - ${res.statusText || ""}` : "Erro inesperado.");
+      const error = new Error(msg);
+      error.status = res.status;
+      error.body = data;
+      return error;
+    };
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       setLoginFeedback("");
@@ -452,7 +469,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data.error || "Nao foi possivel fazer login.");
+          throw await buildHttpError(res, "Nao foi possivel fazer login.");
         }
 
         if (!data.token) {
@@ -544,7 +561,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Falha ao importar Black-List.");
+        throw await buildHttpError(res, "Falha ao importar Black-List.");
       }
       openModal(
         "Importar Black-List",
@@ -563,8 +580,7 @@
         },
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Falha ao exportar Black-List.");
+        throw await buildHttpError(res, "Falha ao exportar Black-List.");
       }
       const blob = await res.blob();
       downloadBlob(blob, "blacklist.csv");
@@ -584,8 +600,7 @@
         body: formData,
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Falha ao limpar mailing.");
+        throw await buildHttpError(res, "Falha ao limpar mailing.");
       }
       const blob = await res.blob();
       const kept = res.headers.get("X-Records-Filtered");
