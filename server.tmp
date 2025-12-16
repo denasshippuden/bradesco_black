@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
@@ -17,7 +17,7 @@ const upload = multer({
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-  console.warn("DATABASE_URL nÃ£o configurada. Configure no .env.");
+  console.warn("DATABASE_URL não configurada. Configure no .env.");
 }
 const SCHEMA = process.env.PGSCHEMA || "blacklists";
 const TABLE = `${SCHEMA}.blacklist`;
@@ -251,7 +251,7 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Coluna A é CPF por padrão, mas se houver cabeçalho que contenha CPF (qualquer caixa/espaço), usa esse índice.
+  // Implementação tolerante: aceita CSV com ; ou , , com/sem aspas, com ou sem cabeçalho.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
   const lines = text
     .split(/\r?\n/)
@@ -266,32 +266,40 @@ const extractCpfsFromCsv = (buffer) => {
   };
 
   let delimiter = detectDelimiter(lines[0]);
-  const splitLine = (line, delim) =>
+  const splitLine = (line) =>
     line
       .replace(/"/g, "")
-      .split(delim)
+      .split(delimiter)
       .map((p) => p.trim());
 
-  const parseWith = (delim) => {
-    const headerParts = splitLine(lines[0], delim).map((h) =>
-      h.replace(/\s+/g, "").toLowerCase()
-    );
-    const cpfIdx = headerParts.findIndex((h) => h === "cpf");
-    const hasHeader = cpfIdx !== -1;
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-    const index = hasHeader ? cpfIdx : 0;
-    return dataLines
-      .map((line) => {
-        const parts = splitLine(line, delim);
-        return normalizeCpf(parts[index] || parts[0] || "");
-      })
-      .filter(Boolean);
-  };
+  const headerParts = splitLine(lines[0]).map((h) => h.toLowerCase());
+  const hasHeader = headerParts.some((h) => CPF_HEADER.has(h));
+  const cpfIdx = hasHeader
+    ? headerParts.findIndex((h) => CPF_HEADER.has(h))
+    : 0;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
 
-  let cpfs = parseWith(delimiter);
+  let cpfs = dataLines
+    .map((line) => {
+      const parts = splitLine(line);
+      return normalizeCpf(parts[cpfIdx] || parts[0] || "");
+    })
+    .filter(Boolean);
+
+  // Se nada foi lido e o delimitador principal falhou, tenta trocar ; <-> ,
   if (!cpfs.length) {
     delimiter = delimiter === ";" ? "," : ";";
-    cpfs = parseWith(delimiter);
+    const altSplitLine = (line) =>
+      line
+        .replace(/"/g, "")
+        .split(delimiter)
+        .map((p) => p.trim());
+    cpfs = dataLines
+      .map((line) => {
+        const parts = altSplitLine(line);
+        return normalizeCpf(parts[cpfIdx] || parts[0] || "");
+      })
+      .filter(Boolean);
   }
 
   return cpfs;
@@ -382,7 +390,7 @@ app.post(
     if (!validCpfs.length) {
       return res
         .status(400)
-        .json({ error: "Nenhum CPF vÃ¡lido encontrado no arquivo." });
+        .json({ error: "Nenhum CPF válido encontrado no arquivo." });
     }
 
     const client = await pool.connect();
@@ -406,7 +414,7 @@ app.post(
         inserted = insertResult.rowCount || 0;
       }
 
-      // Atualiza updated_at de todos os vÃ¡lidos (incluindo jÃ¡ existentes)
+      // Atualiza updated_at de todos os válidos (incluindo já existentes)
       await client.query(
         `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = ANY($1)`,
         [validCpfs]
@@ -491,7 +499,7 @@ app.post(
     if (!validCpfs.length) {
       return res
         .status(400)
-        .json({ error: "Nenhum CPF vÃ¡lido encontrado no arquivo." });
+        .json({ error: "Nenhum CPF válido encontrado no arquivo." });
     }
 
     const blocked = await pool.query(
