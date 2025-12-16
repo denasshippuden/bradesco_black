@@ -4,7 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
-const { parse } = require("csv-parse/sync");
 const { Pool } = require("pg");
 
 const app = express();
@@ -243,76 +242,55 @@ const requireAuth = async (req, res, next) => {
 const normalizeCpf = (value = "") => value.replace(/\D/g, "");
 const isValidCpf = (cpf) => cpf.length === 11;
 
-const pickCpfFromRow = (row) => {
-  const keys = Object.keys(row || {});
-  if (!keys.length) return "";
-  const matchKey = keys.find((k) => CPF_HEADER.has(k.toLowerCase())) || keys[0];
-  return normalizeCpf(row[matchKey] || "");
-};
-
-const extractCpfsFromCsv = (buffer) => {
-  // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional, linhas irregulares e variacao no numero de colunas.
+const parseCsvLines = (buffer) => {
+  // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional e qualquer quantidade de colunas/linhas.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
-  const lines = text
+  const rawLines = text
     .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (!lines.length) return [];
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.trim() !== "");
+  if (!rawLines.length) return { rows: [], hasHeader: false, headerLine: "" };
 
   const detectDelimiter = () => {
-    const sample = lines.find((l) => /[;,]/.test(l)) || lines[0];
+    const sample = rawLines.find((l) => /[;,]/.test(l)) || rawLines[0];
     const semi = (sample.match(/;/g) || []).length;
     const comma = (sample.match(/,/g) || []).length;
+    if (!semi && !comma) return "";
     return semi >= comma ? ";" : ",";
   };
 
-  const safeSplit = (line, delim) =>
-    (line || "")
-      .replace(/\0/g, "")
-      .split(delim)
-      .map((p) => p.replace(/^\"|\"$/g, "").trim());
-
   const delimiter = detectDelimiter();
-  let records = [];
-  try {
-    records = parse(text, {
-      delimiter,
-      columns: false,
-      bom: true,
-      trim: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-      relax_column_count_less: true,
-      relax_column_count_more: true,
-      relax_quotes: true,
-    });
-  } catch (err) {
-    // Em CSVs irregulares, fazemos fallback simples para nao quebrar o fluxo.
-    console.warn(
-      "Falha no parse CSV, usando fallback simples:",
-      err?.message || err
-    );
-    records = lines.map((line) => safeSplit(line, delimiter));
-  }
+  const firstField = (line) => {
+    if (!line) return "";
+    if (delimiter) {
+      const cut = line.indexOf(delimiter);
+      return cut === -1 ? line : line.slice(0, cut);
+    }
+    const cut = line.search(/[;,]/);
+    return cut === -1 ? line : line.slice(0, cut);
+  };
 
-  if (!Array.isArray(records)) records = [];
-  if (!records.length) {
-    const alt = delimiter === ";" ? "," : ";";
-    records = lines.map((line) => safeSplit(line, alt));
-  }
+  const cleanRaw = (value = "") =>
+    value.replace(/\0/g, "").replace(/^\"|\"$/g, "").trim();
 
-  return records
-    .map((cols, idx) => {
-      const first = Array.isArray(cols) ? cols[0] : cols;
-      if (
-        idx === 0 &&
-        typeof first === "string" &&
-        CPF_HEADER.has(first.trim().toLowerCase())
-      ) {
-        return "";
-      }
-      return normalizeCpf(typeof first === "string" ? first : "");
-    })
+  const headerLine = rawLines[0];
+  const headerFirst = cleanRaw(firstField(headerLine)).toLowerCase();
+  const hasHeader = CPF_HEADER.has(headerFirst);
+  const dataLines = hasHeader ? rawLines.slice(1) : rawLines;
+
+  const rows = dataLines.map((line) => {
+    const rawCpf = cleanRaw(firstField(line));
+    const cpf = normalizeCpf(rawCpf);
+    return { line, cpf, valid: isValidCpf(cpf) };
+  });
+
+  return { rows, hasHeader, headerLine };
+};
+
+const extractCpfsFromCsv = (buffer) => {
+  const parsed = parseCsvLines(buffer);
+  return parsed.rows
+    .map((r) => normalizeCpf(r.cpf || ""))
     .filter(Boolean);
 };
 
@@ -496,20 +474,19 @@ app.post(
     if (!req.file) {
       return res.status(400).json({ error: "Envie um arquivo CSV." });
     }
-    const rawCpfs = extractCpfsFromCsv(req.file.buffer);
+    const parsed = parseCsvLines(req.file.buffer);
     const seen = new Set();
     const validCpfs = [];
-    rawCpfs.forEach((cpf) => {
-      const norm = normalizeCpf(cpf);
-      if (isValidCpf(norm) && !seen.has(norm)) {
-        seen.add(norm);
-        validCpfs.push(norm);
+    parsed.rows.forEach((row) => {
+      if (row.valid && !seen.has(row.cpf)) {
+        seen.add(row.cpf);
+        validCpfs.push(row.cpf);
       }
     });
     if (!validCpfs.length) {
       return res
         .status(400)
-        .json({ error: "Nenhum CPF vÃ¡lido encontrado no arquivo." });
+        .json({ error: "Nenhum CPF v?lido encontrado no arquivo." });
     }
 
     const blocked = await pool.query(
@@ -517,13 +494,17 @@ app.post(
       [validCpfs]
     );
     const blockedSet = new Set(blocked.rows.map((r) => r.cpf));
-    const cleaned = validCpfs.filter((cpf) => !blockedSet.has(cpf));
+    const cleanedRows = parsed.rows.filter(
+      (row) => !row.valid || !blockedSet.has(row.cpf)
+    );
 
-    const lines = ["cpf", ...cleaned];
+    const lines = [];
+    if (parsed.hasHeader) lines.push(parsed.headerLine);
+    cleanedRows.forEach((row) => lines.push(row.line));
     await logEvent("clean", 200, {
       processed: validCpfs.length,
-      total_input: validCpfs.length,
-      output_count: cleaned.length,
+      total_input: parsed.rows.length,
+      output_count: cleanedRows.length,
       ip,
     });
     res.setHeader("Content-Type", "text/csv");
@@ -531,8 +512,8 @@ app.post(
       "Content-Disposition",
       'attachment; filename="mailing_limpo.csv"'
     );
-    res.setHeader("X-Records-Filtered", cleaned.length.toString());
-    res.setHeader("X-Records-Input", validCpfs.length.toString());
+    res.setHeader("X-Records-Filtered", cleanedRows.length.toString());
+    res.setHeader("X-Records-Input", parsed.rows.length.toString());
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
