@@ -250,7 +250,7 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Coluna A é CPF por padrão, mas se houver cabeçalho que contenha CPF (qualquer caixa/espaço), usa esse índice.
+  // Coluna A é sempre CPF; aceita ; ou , , com/sem aspas, com ou sem cabeçalho.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
   const lines = text
     .split(/\r?\n/)
@@ -271,21 +271,13 @@ const extractCpfsFromCsv = (buffer) => {
       .split(delim)
       .map((p) => p.trim());
 
-  const parseWith = (delim) => {
-    const headerParts = splitLine(lines[0], delim).map((h) =>
-      h.replace(/\s+/g, "").toLowerCase()
-    );
-    const cpfIdx = headerParts.findIndex((h) => h === "cpf");
-    const hasHeader = cpfIdx !== -1;
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-    const index = hasHeader ? cpfIdx : 0;
-    return dataLines
+  const parseWith = (delim) =>
+    lines
       .map((line) => {
         const parts = splitLine(line, delim);
-        return normalizeCpf(parts[index] || parts[0] || "");
+        return normalizeCpf(parts[0] || "");
       })
       .filter(Boolean);
-  };
 
   let cpfs = parseWith(delimiter);
   if (!cpfs.length) {
@@ -295,7 +287,6 @@ const extractCpfsFromCsv = (buffer) => {
 
   return cpfs;
 };
-
 
 app.use(
   express.json({
