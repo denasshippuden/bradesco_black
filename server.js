@@ -76,6 +76,7 @@ const parsedTtl = Number(process.env.SESSION_TTL_MS);
 const SESSION_TTL_MS = Number.isFinite(parsedTtl)
   ? parsedTtl
   : 30 * 60 * 1000;
+const PARSER_VERSION = "manual-v3";
 
 const ensureLogDir = () => {
   if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
@@ -528,6 +529,7 @@ app.post(
     );
     res.setHeader("X-Records-Filtered", cleanedRows.length.toString());
     res.setHeader("X-Records-Input", parsed.rows.length.toString());
+    res.setHeader("X-Parser-Version", PARSER_VERSION);
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
