@@ -4,7 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
-const { parse } = require("csv-parse/sync");
 const { Pool } = require("pg");
 
 const app = express();
