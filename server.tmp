@@ -242,64 +242,70 @@ const requireAuth = async (req, res, next) => {
 const normalizeCpf = (value = "") => value.replace(/\D/g, "");
 const isValidCpf = (cpf) => cpf.length === 11;
 
-const pickCpfFromRow = (row) => {
-  const keys = Object.keys(row || {});
-  if (!keys.length) return "";
-  const matchKey = keys.find((k) => CPF_HEADER.has(k.toLowerCase())) || keys[0];
-  return normalizeCpf(row[matchKey] || "");
-};
-
-const extractCpfsFromCsv = (buffer) => {
+const parseCsvLines = (buffer) => {
   // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional e qualquer quantidade de colunas/linhas.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
-  const lines = text
+  const rawLines = text
     .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (!lines.length) return [];
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.trim() !== "");
+  if (!rawLines.length) return { rows: [], hasHeader: false, headerLine: "" };
 
-  const detectDelimiter = () => {
-    const sample = lines.find((l) => /[;,]/.test(l)) || lines[0];
-    const semi = (sample.match(/;/g) || []).length;
-    const comma = (sample.match(/,/g) || []).length;
-    if (!semi && !comma) return "";
-    return semi >= comma ? ";" : ",";
+  const chooseDelimiter = () => {
+    const sample = rawLines.find((l) => /[;,]/.test(l)) || rawLines[0];
+    if (sample.includes(";")) return ";"; // prioriza ; se houver
+    if (sample.includes(",")) return ",";
+    return "";
   };
 
   const cleanRaw = (value = "") =>
     value.replace(/\0/g, "").replace(/^\"|\"$/g, "").trim();
 
-  const readWith = (delim) =>
-    lines
-      .map((line, idx) => {
-        let first;
-        if (delim) {
-          const cut = line.indexOf(delim);
-          first = cut === -1 ? line : line.slice(0, cut);
-        } else {
-          const cut = line.search(/[;,]/);
-          first = cut === -1 ? line : line.slice(0, cut);
-        }
-        const raw = cleanRaw(first);
-        if (idx === 0 && raw && CPF_HEADER.has(raw.toLowerCase())) {
-          return "";
-        }
-        return normalizeCpf(raw);
-      })
-      .filter(Boolean);
+  const parseWithDelimiter = (delimiter) => {
+    const firstField = (line) => {
+      if (!line) return "";
+      if (delimiter) {
+        const cut = line.indexOf(delimiter);
+        return cut === -1 ? line : line.slice(0, cut);
+      }
+      const cut = line.search(/[;,]/);
+      return cut === -1 ? line : line.slice(0, cut);
+    };
 
-  let delimiter = detectDelimiter();
-  let cpfs = readWith(delimiter);
-  if (!cpfs.length) {
-    delimiter = delimiter === ";" ? "," : ";";
-    cpfs = readWith(delimiter);
+    const headerLine = rawLines[0];
+    const headerFirst = cleanRaw(firstField(headerLine)).toLowerCase();
+    const hasHeader = CPF_HEADER.has(headerFirst);
+    const dataLines = hasHeader ? rawLines.slice(1) : rawLines;
+
+    const rows = dataLines.map((line) => {
+      const rawCpf = cleanRaw(firstField(line));
+      const cpf = normalizeCpf(rawCpf);
+      return { line, cpf, valid: isValidCpf(cpf) };
+    });
+
+    return { rows, hasHeader, headerLine };
+  };
+
+  const primary = chooseDelimiter();
+  let parsed = parseWithDelimiter(primary);
+
+  const hasValid = parsed.rows.some((r) => r.valid);
+  if (!hasValid) {
+    const alt = primary === ";" ? "," : ";";
+    if (rawLines.some((l) => l.includes(alt))) {
+      parsed = parseWithDelimiter(alt);
+    }
   }
-  if (!cpfs.length) {
-    cpfs = readWith(""); // fallback: corta no primeiro ; ou , encontrado em cada linha
-  }
-  return cpfs;
+
+  return parsed;
 };
 
+const extractCpfsFromCsv = (buffer) => {
+  const parsed = parseCsvLines(buffer);
+  return parsed.rows
+    .map((r) => normalizeCpf(r.cpf || ""))
+    .filter(Boolean);
+};
 
 app.use(
   express.json({

@@ -251,40 +251,54 @@ const parseCsvLines = (buffer) => {
     .filter((l) => l.trim() !== "");
   if (!rawLines.length) return { rows: [], hasHeader: false, headerLine: "" };
 
-  const detectDelimiter = () => {
+  const chooseDelimiter = () => {
     const sample = rawLines.find((l) => /[;,]/.test(l)) || rawLines[0];
-    const semi = (sample.match(/;/g) || []).length;
-    const comma = (sample.match(/,/g) || []).length;
-    if (!semi && !comma) return "";
-    return semi >= comma ? ";" : ",";
-  };
-
-  const delimiter = detectDelimiter();
-  const firstField = (line) => {
-    if (!line) return "";
-    if (delimiter) {
-      const cut = line.indexOf(delimiter);
-      return cut === -1 ? line : line.slice(0, cut);
-    }
-    const cut = line.search(/[;,]/);
-    return cut === -1 ? line : line.slice(0, cut);
+    if (sample.includes(";")) return ";"; // prioriza ; se houver
+    if (sample.includes(",")) return ",";
+    return "";
   };
 
   const cleanRaw = (value = "") =>
     value.replace(/\0/g, "").replace(/^\"|\"$/g, "").trim();
 
-  const headerLine = rawLines[0];
-  const headerFirst = cleanRaw(firstField(headerLine)).toLowerCase();
-  const hasHeader = CPF_HEADER.has(headerFirst);
-  const dataLines = hasHeader ? rawLines.slice(1) : rawLines;
+  const parseWithDelimiter = (delimiter) => {
+    const firstField = (line) => {
+      if (!line) return "";
+      if (delimiter) {
+        const cut = line.indexOf(delimiter);
+        return cut === -1 ? line : line.slice(0, cut);
+      }
+      const cut = line.search(/[;,]/);
+      return cut === -1 ? line : line.slice(0, cut);
+    };
 
-  const rows = dataLines.map((line) => {
-    const rawCpf = cleanRaw(firstField(line));
-    const cpf = normalizeCpf(rawCpf);
-    return { line, cpf, valid: isValidCpf(cpf) };
-  });
+    const headerLine = rawLines[0];
+    const headerFirst = cleanRaw(firstField(headerLine)).toLowerCase();
+    const hasHeader = CPF_HEADER.has(headerFirst);
+    const dataLines = hasHeader ? rawLines.slice(1) : rawLines;
 
-  return { rows, hasHeader, headerLine };
+    const rows = dataLines.map((line) => {
+      const rawCpf = cleanRaw(firstField(line));
+      const cpf = normalizeCpf(rawCpf);
+      return { line, cpf, valid: isValidCpf(cpf) };
+    });
+
+    return { rows, hasHeader, headerLine };
+  };
+
+  const primary = chooseDelimiter();
+  let parsed = parseWithDelimiter(primary);
+
+  // Se nao achou nenhum CPF valido e houver outro delimitador possivel, tenta o alternativo.
+  const hasValid = parsed.rows.some((r) => r.valid);
+  if (!hasValid) {
+    const alt = primary === ";" ? "," : ";";
+    if (rawLines.some((l) => l.includes(alt))) {
+      parsed = parseWithDelimiter(alt);
+    }
+  }
+
+  return parsed;
 };
 
 const extractCpfsFromCsv = (buffer) => {
