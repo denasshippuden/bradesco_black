@@ -444,7 +444,7 @@ app.post(
   } catch (err) {
     const status = err.status || 500;
     console.error(err);
-    await logEvent("import", status, { ip }, err.message);
+    await logEvent("import", status, { ip, err: err.message }, err.message);
     res.status(status).json({ error: err.message || "Erro interno." });
   }
 });
@@ -526,7 +526,12 @@ app.post(
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
-    await logEvent("clean", 500, { ip }, "Falha ao limpar mailing");
+    await logEvent(
+      "clean",
+      err.status || 500,
+      { ip, err: err.message },
+      "Falha ao limpar mailing"
+    );
     res.status(500).json({ error: "Falha ao limpar mailing." });
   }
 });
