@@ -251,43 +251,58 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  const tryParse = (opts) =>
-    parse(buffer, {
-      skip_empty_lines: true,
-      trim: true,
-      relax_column_count: true,
-      relax_quotes: true,
-      bom: true,
-      ...opts,
-    });
+  // Implementação tolerante: aceita CSV com ; ou , , com/sem aspas, com ou sem cabeçalho.
+  const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!lines.length) return [];
 
-  // Primeiro, tenta com cabeçalho
-  try {
-    const rows = tryParse({
-      columns: (header) => header.map((h) => h.toLowerCase()),
-    });
-    if (Array.isArray(rows) && rows.length && typeof rows[0] === "object") {
-      return rows.map(pickCpfFromRow).filter(Boolean);
-    }
-  } catch (_err) {
-    // Continua para o fallback
+  const detectDelimiter = (sample) => {
+    const semi = (sample.match(/;/g) || []).length;
+    const comma = (sample.match(/,/g) || []).length;
+    return semi > comma ? ";" : ",";
+  };
+
+  let delimiter = detectDelimiter(lines[0]);
+  const splitLine = (line) =>
+    line
+      .replace(/"/g, "")
+      .split(delimiter)
+      .map((p) => p.trim());
+
+  const headerParts = splitLine(lines[0]).map((h) => h.toLowerCase());
+  const hasHeader = headerParts.some((h) => CPF_HEADER.has(h));
+  const cpfIdx = hasHeader
+    ? headerParts.findIndex((h) => CPF_HEADER.has(h))
+    : 0;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  let cpfs = dataLines
+    .map((line) => {
+      const parts = splitLine(line);
+      return normalizeCpf(parts[cpfIdx] || parts[0] || "");
+    })
+    .filter(Boolean);
+
+  // Se nada foi lido e o delimitador principal falhou, tenta trocar ; <-> ,
+  if (!cpfs.length) {
+    delimiter = delimiter === ";" ? "," : ";";
+    const altSplitLine = (line) =>
+      line
+        .replace(/"/g, "")
+        .split(delimiter)
+        .map((p) => p.trim());
+    cpfs = dataLines
+      .map((line) => {
+        const parts = altSplitLine(line);
+        return normalizeCpf(parts[cpfIdx] || parts[0] || "");
+      })
+      .filter(Boolean);
   }
 
-  // Depois, sem cabeçalho
-  try {
-    const rows = tryParse({ columns: false });
-    return rows
-      .map((r) => normalizeCpf(Array.isArray(r) ? r[0] : r))
-      .filter(Boolean);
-  } catch (_err) {
-    // Último fallback: divide linhas manualmente, remove aspas e usa o primeiro campo separado por ; ou ,
-    const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
-    return text
-      .split(/\r?\n/)
-      .map((line) => line.replace(/"/g, "").split(/[;,]/)[0] || "")
-      .map(normalizeCpf)
-      .filter(Boolean);
-  }
+  return cpfs;
 };
 
 
