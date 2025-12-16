@@ -251,28 +251,42 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Primeiro, tenta com cabeçalho
+  // Primeiro, tenta com cabe?alho e relaxa a contagem de colunas para arquivos "sujos".
   try {
     const rows = parse(buffer, {
       columns: (header) => header.map((h) => h.toLowerCase()),
       skip_empty_lines: true,
       trim: true,
+      relax_column_count: true,
     });
     if (Array.isArray(rows) && rows.length && typeof rows[0] === "object") {
       return rows.map(pickCpfFromRow).filter(Boolean);
     }
-  } catch (err) {
-    // fallback sem cabeçalho
+  } catch (_err) {
+    // Continua para o fallback
   }
-  const rows = parse(buffer, {
-    columns: false,
-    skip_empty_lines: true,
-    trim: true,
-  });
-  return rows
-    .map((r) => normalizeCpf(Array.isArray(r) ? r[0] : r))
-    .filter(Boolean);
+
+  try {
+    const rows = parse(buffer, {
+      columns: false,
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+    });
+    return rows
+      .map((r) => normalizeCpf(Array.isArray(r) ? r[0] : r))
+      .filter(Boolean);
+  } catch (_err) {
+    // ?ltimo fallback: divide linhas manualmente por ; ou , e pega o primeiro campo
+    const text = buffer.toString("utf8");
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.split(/[;,]/)[0] || "")
+      .map(normalizeCpf)
+      .filter(Boolean);
+  }
 };
+
 
 app.use(
   express.json({
