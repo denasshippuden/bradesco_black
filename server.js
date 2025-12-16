@@ -251,13 +251,20 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Primeiro, tenta com cabe?alho e relaxa a contagem de colunas para arquivos "sujos".
-  try {
-    const rows = parse(buffer, {
-      columns: (header) => header.map((h) => h.toLowerCase()),
+  const tryParse = (opts) =>
+    parse(buffer, {
       skip_empty_lines: true,
       trim: true,
       relax_column_count: true,
+      relax_quotes: true,
+      bom: true,
+      ...opts,
+    });
+
+  // Primeiro, tenta com cabeçalho
+  try {
+    const rows = tryParse({
+      columns: (header) => header.map((h) => h.toLowerCase()),
     });
     if (Array.isArray(rows) && rows.length && typeof rows[0] === "object") {
       return rows.map(pickCpfFromRow).filter(Boolean);
@@ -266,22 +273,18 @@ const extractCpfsFromCsv = (buffer) => {
     // Continua para o fallback
   }
 
+  // Depois, sem cabeçalho
   try {
-    const rows = parse(buffer, {
-      columns: false,
-      skip_empty_lines: true,
-      trim: true,
-      relax_column_count: true,
-    });
+    const rows = tryParse({ columns: false });
     return rows
       .map((r) => normalizeCpf(Array.isArray(r) ? r[0] : r))
       .filter(Boolean);
   } catch (_err) {
-    // ?ltimo fallback: divide linhas manualmente por ; ou , e pega o primeiro campo
-    const text = buffer.toString("utf8");
+    // Último fallback: divide linhas manualmente, remove aspas e usa o primeiro campo separado por ; ou ,
+    const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
     return text
       .split(/\r?\n/)
-      .map((line) => line.split(/[;,]/)[0] || "")
+      .map((line) => line.replace(/"/g, "").split(/[;,]/)[0] || "")
       .map(normalizeCpf)
       .filter(Boolean);
   }
