@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
+const { parse } = require("csv-parse/sync");
 const { Pool } = require("pg");
 
 const app = express();
@@ -250,7 +251,7 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Coluna A é sempre CPF; aceita ; ou , , com/sem aspas, com ou sem cabeçalho.
+  // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional e variacao no numero de colunas.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
   const lines = text
     .split(/\r?\n/)
@@ -258,34 +259,49 @@ const extractCpfsFromCsv = (buffer) => {
     .filter(Boolean);
   if (!lines.length) return [];
 
-  const detectDelimiter = (sample) => {
+  const detectDelimiter = () => {
+    const sample = lines.find((l) => /[;,]/.test(l)) || lines[0];
     const semi = (sample.match(/;/g) || []).length;
     const comma = (sample.match(/,/g) || []).length;
-    return semi > comma ? ";" : ",";
+    return semi >= comma ? ";" : ",";
   };
 
-  let delimiter = detectDelimiter(lines[0]);
-  const splitLine = (line, delim) =>
-    line
-      .replace(/"/g, "")
-      .split(delim)
-      .map((p) => p.trim());
-
-  const parseWith = (delim) =>
-    lines
-      .map((line) => {
-        const parts = splitLine(line, delim);
-        return normalizeCpf(parts[0] || "");
-      })
-      .filter(Boolean);
-
-  let cpfs = parseWith(delimiter);
-  if (!cpfs.length) {
-    delimiter = delimiter === ";" ? "," : ";";
-    cpfs = parseWith(delimiter);
+  const delimiter = detectDelimiter();
+  let records;
+  try {
+    records = parse(text, {
+      delimiter,
+      columns: false,
+      bom: true,
+      trim: true,
+      skip_empty_lines: true,
+      relax_column_count: true,
+      relax_column_count_less: true,
+    });
+  } catch (err) {
+    // Em CSVs irregulares, fazemos fallback simples para nao quebrar o fluxo.
+    console.warn(
+      "Falha no parse CSV, usando fallback simples:",
+      err?.message || err
+    );
+    records = lines.map((line) => line.split(delimiter));
   }
 
-  return cpfs;
+  return records
+    .map((cols, idx) => {
+      const first = Array.isArray(cols) ? cols[0] : cols;
+      if (
+        idx === 0 &&
+        typeof first === "string" &&
+        CPF_HEADER.has(first.trim().toLowerCase())
+      ) {
+        return "";
+      }
+      return normalizeCpf(
+        typeof first === "string" ? first.replace(/^\"|\"$/g, "").trim() : ""
+      );
+    })
+    .filter(Boolean);
 };
 
 app.use(
