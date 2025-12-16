@@ -251,7 +251,7 @@ const pickCpfFromRow = (row) => {
 };
 
 const extractCpfsFromCsv = (buffer) => {
-  // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional e variacao no numero de colunas.
+  // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional, linhas irregulares e variacao no numero de colunas.
   const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
   const lines = text
     .split(/\r?\n/)
@@ -266,8 +266,14 @@ const extractCpfsFromCsv = (buffer) => {
     return semi >= comma ? ";" : ",";
   };
 
+  const safeSplit = (line, delim) =>
+    (line || "")
+      .replace(/\0/g, "")
+      .split(delim)
+      .map((p) => p.replace(/^\"|\"$/g, "").trim());
+
   const delimiter = detectDelimiter();
-  let records;
+  let records = [];
   try {
     records = parse(text, {
       delimiter,
@@ -277,6 +283,8 @@ const extractCpfsFromCsv = (buffer) => {
       skip_empty_lines: true,
       relax_column_count: true,
       relax_column_count_less: true,
+      relax_column_count_more: true,
+      relax_quotes: true,
     });
   } catch (err) {
     // Em CSVs irregulares, fazemos fallback simples para nao quebrar o fluxo.
@@ -284,7 +292,13 @@ const extractCpfsFromCsv = (buffer) => {
       "Falha no parse CSV, usando fallback simples:",
       err?.message || err
     );
-    records = lines.map((line) => line.split(delimiter));
+    records = lines.map((line) => safeSplit(line, delimiter));
+  }
+
+  if (!Array.isArray(records)) records = [];
+  if (!records.length) {
+    const alt = delimiter === ";" ? "," : ";";
+    records = lines.map((line) => safeSplit(line, alt));
   }
 
   return records
@@ -297,9 +311,7 @@ const extractCpfsFromCsv = (buffer) => {
       ) {
         return "";
       }
-      return normalizeCpf(
-        typeof first === "string" ? first.replace(/^\"|\"$/g, "").trim() : ""
-      );
+      return normalizeCpf(typeof first === "string" ? first : "");
     })
     .filter(Boolean);
 };
