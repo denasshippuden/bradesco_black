@@ -442,12 +442,8 @@
       <div class="actions-wrap hidden" id="actions-wrap">
         <div class="actions-cta">
           <button class="eagle-btn slim" id="consult-cta" type="button">
-            <img src="assets/ave.png" alt="Consulta CPF">
-            <span>Consulta CPF</span>
-          </button>
-          <button class="eagle-btn slim" id="consult-vida-cta" type="button">
-            <img src="assets/ave.png" alt="Consulta Vida">
-            <span>Consulta Vida</span>
+            <img src="assets/ave.png" alt="Consulta CPF/Vida">
+            <span>Consulta CPF / Vida</span>
           </button>
         </div>
         <button class="eagle-btn" id="toggle-actions" type="button">
@@ -493,7 +489,6 @@
     const actionsWrap = document.getElementById("actions-wrap");
     const toggleActionsBtn = document.getElementById("toggle-actions");
     const consultCta = document.getElementById("consult-cta");
-    const consultVidaCta = document.getElementById("consult-vida-cta");
     const loginFeedback = document.getElementById("login-feedback");
     const loginButton = form.querySelector('button[type="submit"]');
     const dashboardTitle = document.getElementById("dashboard-title");
@@ -635,9 +630,6 @@
 
     if (consultCta) {
       consultCta.addEventListener("click", openConsultPage);
-    }
-    if (consultVidaCta) {
-      consultVidaCta.addEventListener("click", openConsultPage);
     }
 
     const createFileInput = () => {

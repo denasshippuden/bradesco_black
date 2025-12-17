@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consulta Vida</title>
+  <title>Consulta CPF / Vida</title>
   <style>
     :root {
       --panel: rgba(16, 20, 30, 0.9);
@@ -160,7 +160,7 @@
 <body>
   <div class="shell">
     <div class="card">
-      <div class="pill">Consulta Vida</div>
+      <div class="pill">Consulta CPF / Vida</div>
       <h1>Consulta CPF</h1>
       <p>Verifique se o CPF esta na Black-List Bradesco Vida.</p>
       <form id="consult-form">
@@ -171,7 +171,7 @@
             type="text"
             inputmode="numeric"
             autocomplete="off"
-            placeholder="Digite o CPF"
+            placeholder="Digite o CPF (somente numeros)"
             maxlength="14"
           >
           <button class="primary" type="submit" id="consult-button">Consultar CPF</button>
@@ -228,26 +228,17 @@
       consultButton.disabled = false;
       return true;
     };
-    const formatCpf = (value = "") => {
-      const digits = value.replace(/\D/g, "").slice(0, 11);
-      const parts = [];
-      if (digits.length > 0) parts.push(digits.slice(0, 3));
-      if (digits.length > 3) parts.push(digits.slice(3, 6));
-      if (digits.length > 6) parts.push(digits.slice(6, 9));
-      const suffix = digits.length > 9 ? digits.slice(9, 11) : "";
-      return [parts.join("."), suffix].filter(Boolean).join("-");
-    };
+    const cleanCpf = (value = "") => value.replace(/\D/g, "").slice(0, 11);
 
     consultInput.addEventListener("input", (event) => {
-      event.target.value = formatCpf(event.target.value);
+      event.target.value = cleanCpf(event.target.value);
     });
 
     consultForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!ensureToken()) return;
       setFeedback("");
-      const raw = (consultInput?.value || "").trim();
-      const cpf = raw.replace(/\D/g, "");
+      const cpf = cleanCpf(consultInput?.value || "");
       if (!cpf) {
         setFeedback("Informe o CPF.", "error");
         consultInput?.focus();
