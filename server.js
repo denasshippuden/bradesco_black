@@ -16,7 +16,7 @@ const upload = multer({
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-  console.warn("DATABASE_URL nÃ£o configurada. Configure no .env.");
+  console.warn("DATABASE_URL nao configurada. Configure no .env.");
 }
 const SCHEMA = process.env.PGSCHEMA || "blacklists";
 const TABLE = `${SCHEMA}.blacklist`;
@@ -440,7 +440,7 @@ app.post(
     if (!validCpfs.length) {
       return res
         .status(400)
-        .json({ error: "Nenhum CPF vÃ¡lido encontrado no arquivo." });
+        .json({ error: "Nenhum CPF valido encontrado no arquivo." });
     }
 
     const client = await pool.connect();
@@ -464,7 +464,7 @@ app.post(
         inserted = insertResult.rowCount || 0;
       }
 
-      // Atualiza updated_at de todos os vÃ¡lidos (incluindo jÃ¡ existentes)
+      // Atualiza updated_at de todos os validos (incluindo ja existentes)
       await client.query(
         `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = ANY($1)`,
         [validCpfs]
@@ -548,7 +548,7 @@ app.post(
     if (!validCpfs.length) {
       return res
         .status(400)
-        .json({ error: "Nenhum CPF v?lido encontrado no arquivo." });
+        .json({ error: "Nenhum CPF valido encontrado no arquivo." });
     }
 
     const blocked = await pool.query(

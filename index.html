@@ -425,6 +425,10 @@
       </div>
 
       <div class="actions-wrap hidden" id="actions-wrap">
+        <button class="eagle-btn" id="consult-cta" type="button">
+          <img src="assets/ave.png" alt="Consulta CPF">
+          <span>Consulta CPF</span>
+        </button>
         <button class="eagle-btn" id="toggle-actions" type="button">
           <img src="assets/ave.png" alt="Am&eacute;rica Financeira">
           <span>Black-List Bradesco Vida</span>
@@ -482,6 +486,8 @@
     const form = document.getElementById("login-form");
     const loginCard = document.getElementById("login-card");
     const actionsWrap = document.getElementById("actions-wrap");
+    const toggleActionsBtn = document.getElementById("toggle-actions");
+    const consultCta = document.getElementById("consult-cta");
     const loginFeedback = document.getElementById("login-feedback");
     const loginButton = form.querySelector('button[type="submit"]');
     const dashboardTitle = document.getElementById("dashboard-title");
@@ -516,6 +522,17 @@
       consultFeedback.classList.toggle("hidden", !message);
       consultFeedback.classList.toggle("is-success", variant === "success");
       consultFeedback.classList.toggle("is-error", variant === "error");
+    };
+
+    const setActionsOpen = (isOpen = true) => {
+      if (!actionsWrap) return;
+      actionsWrap.classList.toggle("open", isOpen);
+    };
+
+    const focusConsultInput = () => {
+      if (!consultInput) return;
+      consultInput.focus();
+      consultInput.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
     const buildHttpError = async (res, fallback) => {
@@ -595,9 +612,19 @@
       if (e.target === modalBackdrop) closeModal();
     });
 
-    document.getElementById("toggle-actions").addEventListener("click", () => {
-      actionsWrap.classList.toggle("open");
-    });
+    if (toggleActionsBtn && actionsWrap) {
+      toggleActionsBtn.addEventListener("click", () => {
+        const nextOpen = !actionsWrap.classList.contains("open");
+        setActionsOpen(nextOpen);
+      });
+    }
+
+    if (consultCta) {
+      consultCta.addEventListener("click", () => {
+        setActionsOpen(true);
+        focusConsultInput();
+      });
+    }
 
     const createFileInput = () => {
       const input = document.createElement("input");
