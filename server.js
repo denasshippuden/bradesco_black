@@ -335,9 +335,14 @@ app.use(
 const sendIndex = (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 };
+const sendConsulta = (req, res) => {
+  res.sendFile(path.join(__dirname, "consulta.html"));
+};
 
 app.get("/", sendIndex);
 app.get("/index.html", sendIndex);
+app.get("/consulta", sendConsulta);
+app.get("/consulta.html", sendConsulta);
 
 app.post("/api/login", async (req, res) => {
   const { user, pass } = req.body || {};

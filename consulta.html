@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta Vida</title>
+  <style>
+    :root {
+      --panel: rgba(16, 20, 30, 0.9);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #5ea4ff;
+      --accent-2: #f5405c;
+      --text: #e8edf2;
+      --muted: #b5c2d4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 18px;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 20%, rgba(94, 164, 255, 0.14), transparent 30%),
+                  radial-gradient(circle at 80% 30%, rgba(245, 64, 92, 0.14), transparent 28%),
+                  #0c1018;
+      position: relative;
+      overflow: hidden;
+    }
+    body::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("assets/dashboard-bg.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.28;
+      z-index: 0;
+      filter: blur(2px);
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: min(560px, 100%);
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 26px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(94, 164, 255, 0.16);
+      border: 1px solid rgba(94, 164, 255, 0.35);
+      color: var(--text);
+      letter-spacing: 0.05em;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { margin: 0 0 18px; color: var(--muted); line-height: 1.5; }
+    label {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 150px;
+      gap: 10px;
+      align-items: center;
+    }
+    input {
+      width: 100%;
+      padding: 14px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.2);
+    }
+    button {
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .primary {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ff6f61, var(--accent-2));
+      color: #0b1220;
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    }
+    .primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(245, 64, 92, 0.35);
+      filter: saturate(1.05);
+    }
+    .primary:active { transform: translateY(0); }
+    .ghost {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .ghost:hover {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .feedback {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      font-weight: 700;
+      text-align: center;
+    }
+    .feedback.is-success {
+      border-color: rgba(90, 214, 134, 0.8);
+      background: rgba(90, 214, 134, 0.15);
+      color: #e8fff2;
+    }
+    .feedback.is-error {
+      border-color: rgba(226, 67, 90, 0.8);
+      background: rgba(226, 67, 90, 0.12);
+      color: #ffe6ec;
+    }
+    .hidden { display: none; }
+    .actions-row {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 540px) {
+      .input-row { grid-template-columns: 1fr; }
+      .primary { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="pill">Consulta Vida</div>
+      <h1>Consulta CPF</h1>
+      <p>Verifique se o CPF esta na Black-List Bradesco Vida.</p>
+      <form id="consult-form">
+        <label for="cpf-input">CPF</label>
+        <div class="input-row">
+          <input
+            id="cpf-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Digite o CPF"
+            maxlength="14"
+          >
+          <button class="primary" type="submit" id="consult-button">Consultar CPF</button>
+        </div>
+      </form>
+      <div class="feedback hidden" id="feedback"></div>
+      <div class="actions-row">
+        <button class="ghost" type="button" id="back-btn">Voltar ao painel</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const API_BASE = window.API_BASE || "";
+    const apiUrl = (path) =>
+      `${API_BASE}`.replace(/\/$/, "") + path;
+
+    const consultForm = document.getElementById("consult-form");
+    const consultInput = document.getElementById("cpf-input");
+    const consultButton = document.getElementById("consult-button");
+    const feedbackEl = document.getElementById("feedback");
+    const backBtn = document.getElementById("back-btn");
+    let authToken = localStorage.getItem("authToken") || "";
+
+    const authHeaders = () =>
+      authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const buildHttpError = async (res, fallback) => {
+      let data = null;
+      try {
+        data = await res.clone().json();
+      } catch (_) {
+        /* ignore parse errors */
+      }
+      const msg =
+        (data && (data.error || data.message)) ||
+        fallback ||
+        (res.status ? `Erro ${res.status} - ${res.statusText || ""}` : "Erro inesperado.");
+      const error = new Error(msg);
+      error.status = res.status;
+      error.body = data;
+      return error;
+    };
+    const setFeedback = (message = "", variant = "") => {
+      feedbackEl.textContent = message;
+      feedbackEl.classList.toggle("hidden", !message);
+      feedbackEl.classList.toggle("is-success", variant === "success");
+      feedbackEl.classList.toggle("is-error", variant === "error");
+    };
+    const ensureToken = () => {
+      if (!authToken) {
+        setFeedback("Faca login no painel principal antes de consultar.", "error");
+        consultButton.disabled = true;
+        return false;
+      }
+      consultButton.disabled = false;
+      return true;
+    };
+    const formatCpf = (value = "") => {
+      const digits = value.replace(/\D/g, "").slice(0, 11);
+      const parts = [];
+      if (digits.length > 0) parts.push(digits.slice(0, 3));
+      if (digits.length > 3) parts.push(digits.slice(3, 6));
+      if (digits.length > 6) parts.push(digits.slice(6, 9));
+      const suffix = digits.length > 9 ? digits.slice(9, 11) : "";
+      return [parts.join("."), suffix].filter(Boolean).join("-");
+    };
+
+    consultInput.addEventListener("input", (event) => {
+      event.target.value = formatCpf(event.target.value);
+    });
+
+    consultForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!ensureToken()) return;
+      setFeedback("");
+      const raw = (consultInput?.value || "").trim();
+      const cpf = raw.replace(/\D/g, "");
+      if (!cpf) {
+        setFeedback("Informe o CPF.", "error");
+        consultInput?.focus();
+        return;
+      }
+      if (cpf.length !== 11) {
+        setFeedback("CPF invalido.", "error");
+        consultInput?.focus();
+        return;
+      }
+
+      consultButton.disabled = true;
+      consultButton.textContent = "Consultando...";
+      try {
+        const res = await fetch(apiUrl("/api/blacklist/check"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ cpf }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw await buildHttpError(res, "Falha ao consultar CPF.");
+        }
+        const blacklisted = !!data.blacklisted;
+        setFeedback(
+          blacklisted ? "Cliente na lista negra" : "Cliente disponivel",
+          blacklisted ? "error" : "success"
+        );
+      } catch (err) {
+        setFeedback(err.message || "Falha na consulta.", "error");
+      } finally {
+        consultButton.disabled = false;
+        consultButton.textContent = "Consultar CPF";
+      }
+    });
+
+    backBtn.addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+
+    if (!ensureToken()) {
+      consultInput.disabled = true;
+    } else {
+      consultInput.focus();
+    }
+  </script>
+</body>
+</html>
