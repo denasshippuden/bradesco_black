@@ -343,7 +343,8 @@ app.get("/", sendIndex);
 app.get("/index.html", sendIndex);
 app.get("/consulta", sendConsulta);
 app.get("/consulta.html", sendConsulta);
-app.get("/consulta/*", sendConsulta);
+app.get("/consulta", sendConsulta);
+app.get("/consulta.html", sendConsulta);
 
 app.post("/api/login", async (req, res) => {
   const { user, pass } = req.body || {};
