@@ -598,10 +598,17 @@ app.post(
 });
 
 // Fallback para rotas HTML
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
-  if (req.path.startsWith("/consulta")) return sendConsulta(req, res);
-  return sendIndex(req, res);
+app.use((req, res) => {
+  // se você tiver API e quiser evitar “engolir” /api
+  if (req.path.startsWith("/api")) {
+    return res.status(404).send("Not found");
+  }
+
+  if (req.path.startsWith("/consulta")) {
+    return sendConsulta(req, res);
+  }
+
+  return res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Quando rodando localmente, suba o servidor HTTP. Em ambiente serverless (Vercel),
