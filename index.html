@@ -678,7 +678,7 @@
         consultInput?.focus();
         return;
       }
-      if (cpf.length !== 11) {
+      if (cpf.length < 8 || cpf.length > 11) {
         setConsultFeedback("CPF invalido.", "error");
         consultInput?.focus();
         return;

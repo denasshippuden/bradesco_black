@@ -241,7 +241,16 @@ const requireAuth = async (req, res, next) => {
 };
 
 const normalizeCpf = (value = "") => value.replace(/\D/g, "");
-const isValidCpf = (cpf) => cpf.length === 11;
+const isPossibleCpf = (value = "") => {
+  const digits = normalizeCpf(value);
+  return digits.length >= 8 && digits.length <= 11;
+};
+const toCanonicalCpf = (value = "") => {
+  const digits = normalizeCpf(value);
+  if (!digits) return "";
+  return digits.padStart(11, "0");
+};
+const stripLeadingZeros = (value = "") => normalizeCpf(value).replace(/^0+/, "");
 
 const parseCsvLines = (buffer) => {
   // Coluna A e sempre CPF; tolera ; ou , , cabecalho opcional e qualquer quantidade de colunas/linhas.
@@ -280,8 +289,15 @@ const parseCsvLines = (buffer) => {
 
     const rows = dataLines.map((line) => {
       const rawCpf = cleanRaw(firstField(line));
-      const cpf = normalizeCpf(rawCpf);
-      return { line, cpf, valid: isValidCpf(cpf) };
+      const normalized = normalizeCpf(rawCpf);
+      const canonical = toCanonicalCpf(normalized);
+      return {
+        line,
+        cpf: canonical,
+        normalized,
+        trimmed: stripLeadingZeros(normalized),
+        valid: isPossibleCpf(normalized),
+      };
     });
 
     return { rows, hasHeader, headerLine };
@@ -304,9 +320,7 @@ const parseCsvLines = (buffer) => {
 
 const extractCpfsFromCsv = (buffer) => {
   const parsed = parseCsvLines(buffer);
-  return parsed.rows
-    .map((r) => normalizeCpf(r.cpf || ""))
-    .filter(Boolean);
+  return parsed.rows.filter((r) => r.valid).map((r) => r.cpf);
 };
 
 app.use(
@@ -381,20 +395,25 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/blacklist/check", requireAuth, async (req, res) => {
   const ip = req.ip;
   try {
-    const cpf = normalizeCpf(String(req.body?.cpf || ""));
-    if (!cpf) {
+    const rawCpf = String(req.body?.cpf || "");
+    const normalized = normalizeCpf(rawCpf);
+    if (!normalized) {
       await logEvent("check", 400, { ip }, "CPF nao informado");
       return res.status(400).json({ error: "CPF nao informado." });
     }
-    if (!isValidCpf(cpf)) {
+    if (!isPossibleCpf(normalized)) {
       await logEvent("check", 400, { ip }, "CPF invalido");
       return res.status(400).json({ error: "CPF invalido." });
     }
+    const canonical = toCanonicalCpf(normalized);
+    const loose = stripLeadingZeros(normalized);
+    const lookup = [canonical];
+    if (loose && loose !== canonical) lookup.push(loose);
 
     await ensureDatabaseReady();
     const result = await pool.query(
-      `SELECT 1 FROM ${TABLE} WHERE cpf = $1 LIMIT 1`,
-      [cpf]
+      `SELECT 1 FROM ${TABLE} WHERE cpf = ANY($1) LIMIT 1`,
+      [lookup]
     );
     const blacklisted = result.rowCount > 0;
     await logEvent(
@@ -404,7 +423,7 @@ app.post("/api/blacklist/check", requireAuth, async (req, res) => {
       blacklisted ? "CPF na blacklist" : "CPF liberado"
     );
     return res.json({
-      cpf,
+      cpf: canonical,
       blacklisted,
       message: blacklisted
         ? "Cliente na lista negra"
@@ -440,8 +459,11 @@ app.post(
     const validSet = new Set();
     let invalid = 0;
     rawCpfs.forEach((cpf) => {
-      if (isValidCpf(cpf)) validSet.add(cpf);
-      else invalid += 1;
+      if (isPossibleCpf(cpf)) {
+        validSet.add(toCanonicalCpf(cpf));
+      } else {
+        invalid += 1;
+      }
     });
     const validCpfs = Array.from(validSet);
     if (!validCpfs.length) {
@@ -455,11 +477,17 @@ app.post(
     let duplicates = 0;
     try {
       await client.query("BEGIN");
+      const looseCpfs = validCpfs
+        .map((cpf) => stripLeadingZeros(cpf))
+        .filter(Boolean);
+      const lookupCpfs = Array.from(new Set([...validCpfs, ...looseCpfs]));
       const existing = await client.query(
         `SELECT cpf FROM ${TABLE} WHERE cpf = ANY($1)`,
-        [validCpfs]
+        [lookupCpfs]
       );
-      const existingSet = new Set(existing.rows.map((r) => r.cpf));
+      const existingSet = new Set(
+        existing.rows.map((r) => toCanonicalCpf(r.cpf))
+      );
       duplicates = existingSet.size;
 
       const newCpfs = validCpfs.filter((cpf) => !existingSet.has(cpf));
@@ -472,10 +500,12 @@ app.post(
       }
 
       // Atualiza updated_at de todos os validos (incluindo ja existentes)
-      await client.query(
-        `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = ANY($1)`,
-        [validCpfs]
-      );
+      if (lookupCpfs.length) {
+        await client.query(
+          `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = ANY($1)`,
+          [lookupCpfs]
+        );
+      }
 
       await client.query("COMMIT");
       const payload = {
@@ -513,7 +543,7 @@ app.get("/api/blacklist/export", requireAuth, async (req, res) => {
     const result = await pool.query(
       `SELECT b.cpf FROM ${TABLE} b ORDER BY b.updated_at DESC`
     );
-    const lines = ["cpf", ...result.rows.map((r) => r.cpf)];
+    const lines = ["cpf", ...result.rows.map((r) => toCanonicalCpf(r.cpf))];
     await logEvent("export", 200, {
       processed: result.rowCount,
       output_count: result.rowCount,
@@ -547,9 +577,12 @@ app.post(
     const seen = new Set();
     const validCpfs = [];
     parsed.rows.forEach((row) => {
-      if (row.valid && !seen.has(row.cpf)) {
-        seen.add(row.cpf);
-        validCpfs.push(row.cpf);
+      if (row.valid) {
+        const cpf = toCanonicalCpf(row.cpf);
+        if (!seen.has(cpf)) {
+          seen.add(cpf);
+          validCpfs.push(cpf);
+        }
       }
     });
     if (!validCpfs.length) {
@@ -558,14 +591,28 @@ app.post(
         .json({ error: "Nenhum CPF valido encontrado no arquivo." });
     }
 
+    const looseCpfs = validCpfs
+      .map((cpf) => stripLeadingZeros(cpf))
+      .filter(Boolean);
+    const lookupCpfs = Array.from(new Set([...validCpfs, ...looseCpfs]));
     const blocked = await pool.query(
       `SELECT cpf FROM ${TABLE} WHERE cpf = ANY($1)`,
-      [validCpfs]
+      [lookupCpfs]
     );
-    const blockedSet = new Set(blocked.rows.map((r) => r.cpf));
-    const cleanedRows = parsed.rows.filter(
-      (row) => !row.valid || !blockedSet.has(row.cpf)
+    const blockedSet = new Set(
+      blocked.rows.map((r) => toCanonicalCpf(r.cpf))
     );
+    const blockedLooseSet = new Set(
+      blocked.rows.map((r) => stripLeadingZeros(r.cpf)).filter(Boolean)
+    );
+    const cleanedRows = parsed.rows.filter((row) => {
+      if (!row.valid) return true;
+      const canonical = toCanonicalCpf(row.cpf);
+      const loose = stripLeadingZeros(row.cpf);
+      const isBlocked =
+        blockedSet.has(canonical) || (loose && blockedLooseSet.has(loose));
+      return !isBlocked;
+    });
 
     const lines = [];
     if (parsed.hasHeader) lines.push(parsed.headerLine);
