@@ -8,7 +8,7 @@ const { Pool } = require("pg");
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
