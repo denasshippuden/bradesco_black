@@ -240,6 +240,9 @@
       overflow: hidden;
       transform: translateY(-6px);
       transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
     .actions-wrap.open .actions-panel {
       max-height: 600px;
@@ -263,6 +266,65 @@
       transform: translateY(-2px);
       border-color: rgba(94, 164, 255, 0.5);
       background: rgba(255, 255, 255, 0.18);
+    }
+    .consult-card {
+      padding: 16px 16px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(30, 34, 48, 0.8));
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+    }
+    .consult-card h2 { margin: 0 0 4px; color: #f7f9fb; }
+    .consult-card .muted { margin: 0 0 10px; display: block; }
+    .consult-row {
+      display: grid;
+      grid-template-columns: 1fr 150px;
+      gap: 10px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .consult-row input {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+    }
+    .consult-btn {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(135deg, #ff6f61, #f5405c);
+      color: #0b1220;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    }
+    .consult-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(245, 64, 92, 0.35);
+      filter: saturate(1.05);
+    }
+    .consult-btn:active { transform: translateY(0); }
+    .consult-feedback {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      font-weight: 700;
+      text-align: center;
+    }
+    .consult-feedback.is-success {
+      border-color: rgba(90, 214, 134, 0.8);
+      background: rgba(90, 214, 134, 0.15);
+      color: #e8fff2;
+    }
+    .consult-feedback.is-error {
+      border-color: rgba(226, 67, 90, 0.8);
+      background: rgba(226, 67, 90, 0.12);
+      color: #ffe6ec;
     }
     .modal-backdrop {
       position: fixed;
@@ -382,6 +444,22 @@
               <span>Remove CPFs presentes na BlackList de sua planilha.</span>
             </button>
           </div>
+          <div class="consult-card">
+            <h2>Consulta Vida</h2>
+            <span class="muted">Verifique se o CPF esta na Black-List.</span>
+            <div class="consult-row">
+              <input
+                id="cpf-check-input"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="Digite o CPF"
+                maxlength="14"
+              >
+              <button class="consult-btn" type="button" id="btn-consult">Consulta Vida</button>
+            </div>
+            <div class="consult-feedback hidden" id="consult-feedback"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -407,6 +485,9 @@
     const loginFeedback = document.getElementById("login-feedback");
     const loginButton = form.querySelector('button[type="submit"]');
     const dashboardTitle = document.getElementById("dashboard-title");
+    const consultInput = document.getElementById("cpf-check-input");
+    const consultFeedback = document.getElementById("consult-feedback");
+    const consultButton = document.getElementById("btn-consult");
     let authToken = "";
 
     const authHeaders = () =>
@@ -427,6 +508,14 @@
     const setLoginFeedback = (message = "") => {
       loginFeedback.textContent = message;
       loginFeedback.classList.toggle("hidden", !message);
+    };
+
+    const setConsultFeedback = (message = "", variant = "") => {
+      if (!consultFeedback) return;
+      consultFeedback.textContent = message;
+      consultFeedback.classList.toggle("hidden", !message);
+      consultFeedback.classList.toggle("is-success", variant === "success");
+      consultFeedback.classList.toggle("is-error", variant === "error");
     };
 
     const buildHttpError = async (res, fallback) => {
@@ -547,6 +636,54 @@
       URL.revokeObjectURL(url);
     };
 
+    const handleConsult = async () => {
+      setConsultFeedback("");
+      const raw = (consultInput?.value || "").trim();
+      const cpf = raw.replace(/\D/g, "");
+      if (!cpf) {
+        setConsultFeedback("Informe o CPF.", "error");
+        consultInput?.focus();
+        return;
+      }
+      if (cpf.length !== 11) {
+        setConsultFeedback("CPF invalido.", "error");
+        consultInput?.focus();
+        return;
+      }
+
+      if (consultButton) {
+        consultButton.disabled = true;
+        consultButton.textContent = "Consultando...";
+      }
+      try {
+        ensureLoggedIn();
+        const res = await fetch(apiUrl("/api/blacklist/check"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ cpf }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw await buildHttpError(res, "Falha ao consultar CPF.");
+        }
+        const blacklisted = !!data.blacklisted;
+        setConsultFeedback(
+          blacklisted ? "Cliente na lista negra" : "Cliente disponivel",
+          blacklisted ? "error" : "success"
+        );
+      } catch (err) {
+        setConsultFeedback(err.message || "Falha na consulta.", "error");
+      } finally {
+        if (consultButton) {
+          consultButton.disabled = false;
+          consultButton.textContent = "Consulta Vida";
+        }
+      }
+    };
+
     const handleImport = async () => {
       const file = await pickFile("import");
       const formData = new FormData();
@@ -636,6 +773,17 @@
     document
       .getElementById("btn-clean")
       .addEventListener("click", safely(handleClean));
+    if (consultButton) {
+      consultButton.addEventListener("click", handleConsult);
+    }
+    if (consultInput) {
+      consultInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          handleConsult();
+        }
+      });
+    }
     document.getElementById("btn-terms").addEventListener("click", () => {
       openModal("Termos de uso", termsCopy);
     });

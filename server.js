@@ -371,6 +371,53 @@ app.post("/api/login", async (req, res) => {
   });
 });
 
+app.post("/api/blacklist/check", requireAuth, async (req, res) => {
+  const ip = req.ip;
+  try {
+    const cpf = normalizeCpf(String(req.body?.cpf || ""));
+    if (!cpf) {
+      await logEvent("check", 400, { ip }, "CPF nao informado");
+      return res.status(400).json({ error: "CPF nao informado." });
+    }
+    if (!isValidCpf(cpf)) {
+      await logEvent("check", 400, { ip }, "CPF invalido");
+      return res.status(400).json({ error: "CPF invalido." });
+    }
+
+    await ensureDatabaseReady();
+    const result = await pool.query(
+      `SELECT 1 FROM ${TABLE} WHERE cpf = $1 LIMIT 1`,
+      [cpf]
+    );
+    const blacklisted = result.rowCount > 0;
+    await logEvent(
+      "check",
+      200,
+      { ip, total_input: 1, output_count: blacklisted ? 1 : 0 },
+      blacklisted ? "CPF na blacklist" : "CPF liberado"
+    );
+    return res.json({
+      cpf,
+      blacklisted,
+      message: blacklisted
+        ? "Cliente na lista negra"
+        : "Cliente disponivel",
+    });
+  } catch (err) {
+    console.error(err);
+    const status = err.status || 500;
+    await logEvent(
+      "check",
+      status,
+      { ip, err: err.message },
+      "Falha ao consultar CPF"
+    );
+    res
+      .status(status)
+      .json({ error: err.message || "Erro ao consultar CPF." });
+  }
+});
+
 app.post(
   "/api/blacklist/import",
   requireAuth,
