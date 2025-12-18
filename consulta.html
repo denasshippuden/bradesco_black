@@ -193,7 +193,10 @@
     const consultButton = document.getElementById("consult-button");
     const feedbackEl = document.getElementById("feedback");
     const backBtn = document.getElementById("back-btn");
-    let authToken = localStorage.getItem("authToken") || "";
+    const AUTH_TOKEN_KEY = "authToken";
+    const AUTH_EXPIRES_KEY = "authExpiresAt";
+    let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+    let authExpiresAt = Number(localStorage.getItem(AUTH_EXPIRES_KEY) || 0);
 
     const authHeaders = () =>
       authToken ? { Authorization: `Bearer ${authToken}` } : {};
@@ -219,13 +222,32 @@
       feedbackEl.classList.toggle("is-success", variant === "success");
       feedbackEl.classList.toggle("is-error", variant === "error");
     };
+    const isSessionExpired = () =>
+      !authToken || (authExpiresAt && Date.now() >= authExpiresAt);
+    const clearSession = (message = "") => {
+      authToken = "";
+      authExpiresAt = 0;
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_EXPIRES_KEY);
+      if (message) {
+        setFeedback(message, "error");
+      }
+    };
+    const redirectToLogin = (message) => {
+      clearSession(message);
+      consultButton.disabled = true;
+      consultInput.disabled = true;
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 800);
+    };
     const ensureToken = () => {
-      if (!authToken) {
-        setFeedback("Faca login no painel principal antes de consultar.", "error");
-        consultButton.disabled = true;
+      if (isSessionExpired()) {
+        redirectToLogin("Sessao expirada, faca login novamente no painel.");
         return false;
       }
       consultButton.disabled = false;
+      consultInput.disabled = false;
       return true;
     };
     const cleanCpf = (value = "") => value.replace(/\D/g, "").slice(0, 11);
@@ -261,6 +283,10 @@
           },
           body: JSON.stringify({ cpf }),
         });
+        if (res.status === 401) {
+          redirectToLogin("Sessao expirada, faca login novamente no painel.");
+          return;
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw await buildHttpError(res, "Falha ao consultar CPF.");
@@ -282,9 +308,7 @@
       window.location.href = "index.html";
     });
 
-    if (!ensureToken()) {
-      consultInput.disabled = true;
-    } else {
+    if (ensureToken()) {
       consultInput.focus();
     }
   </script>

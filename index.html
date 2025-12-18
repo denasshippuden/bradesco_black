@@ -495,14 +495,18 @@
     const consultInput = document.getElementById("cpf-check-input");
     const consultFeedback = document.getElementById("consult-feedback");
     const consultButton = document.getElementById("btn-consult");
-    let authToken = localStorage.getItem("authToken") || "";
+    const AUTH_TOKEN_KEY = "authToken";
+    const AUTH_EXPIRES_KEY = "authExpiresAt";
+    let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+    let authExpiresAt = Number(localStorage.getItem(AUTH_EXPIRES_KEY) || 0);
+    let sessionTimeoutId = null;
 
     const authHeaders = () =>
       authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const ensureLoggedIn = () => {
-      if (!authToken) {
-        throw new Error("Sessao expirada, faca login novamente.");
-      }
+
+    const setLoginFeedback = (message = "") => {
+      loginFeedback.textContent = message;
+      loginFeedback.classList.toggle("hidden", !message);
     };
 
     const setDashboardVisible = () => {
@@ -512,12 +516,81 @@
       dashboardTitle.classList.remove("hidden");
     };
 
-    const setLoginFeedback = (message = "") => {
-      loginFeedback.textContent = message;
-      loginFeedback.classList.toggle("hidden", !message);
+    const setLoginVisible = (message = "") => {
+      loginCard.classList.remove("hidden");
+      actionsWrap.classList.add("hidden");
+      actionsWrap.classList.remove("open");
+      document.body.classList.remove("dashboard");
+      dashboardTitle.classList.add("hidden");
+      if (message) {
+        setLoginFeedback(message);
+      }
     };
-    if (authToken) {
+
+    const isSessionExpired = () =>
+      !authToken || (authExpiresAt && Date.now() >= authExpiresAt);
+
+    const clearSession = (message = "") => {
+      authToken = "";
+      authExpiresAt = 0;
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_EXPIRES_KEY);
+      if (sessionTimeoutId) {
+        clearTimeout(sessionTimeoutId);
+        sessionTimeoutId = null;
+      }
+      setLoginVisible(message);
+    };
+
+    const scheduleSessionExpiry = () => {
+      if (sessionTimeoutId) {
+        clearTimeout(sessionTimeoutId);
+      }
+      if (!authExpiresAt) return;
+      const remaining = authExpiresAt - Date.now();
+      if (remaining <= 0) {
+        clearSession("Sessao expirada, faca login novamente.");
+        return;
+      }
+      sessionTimeoutId = setTimeout(() => {
+        clearSession("Sessao expirada, faca login novamente.");
+      }, remaining);
+    };
+
+    const ensureLoggedIn = () => {
+      if (isSessionExpired()) {
+        clearSession("Sessao expirada, faca login novamente.");
+        throw new Error("Sessao expirada, faca login novamente.");
+      }
+    };
+
+    const handleUnauthorized = () => {
+      clearSession("Sessao expirada, faca login novamente.");
+      throw new Error("Sessao expirada, faca login novamente.");
+    };
+
+    const persistSession = ({ token, expiresAt, expiresInMs }) => {
+      authToken = token || "";
+      const parsedIso = expiresAt ? Date.parse(expiresAt) : NaN;
+      const fallbackExp = expiresInMs ? Date.now() + Number(expiresInMs) : 0;
+      authExpiresAt = Number.isFinite(parsedIso) ? parsedIso : fallbackExp;
+
+      localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+      if (authExpiresAt) {
+        localStorage.setItem(AUTH_EXPIRES_KEY, String(authExpiresAt));
+      } else {
+        localStorage.removeItem(AUTH_EXPIRES_KEY);
+      }
+
       setDashboardVisible();
+      scheduleSessionExpiry();
+    };
+
+    if (authToken && !isSessionExpired()) {
+      setDashboardVisible();
+      scheduleSessionExpiry();
+    } else if (authToken) {
+      clearSession("Sessao expirada, faca login novamente.");
     }
 
     const setConsultFeedback = (message = "", variant = "") => {
@@ -586,9 +659,11 @@
           throw new Error("Resposta de login invalida.");
         }
 
-        authToken = data.token;
-        localStorage.setItem("authToken", data.token);
-        setDashboardVisible();
+        persistSession({
+          token: data.token,
+          expiresAt: data.expiresAt,
+          expiresInMs: data.expiresInMs,
+        });
       } catch (err) {
         setLoginFeedback(err.message || "Falha ao fazer login.");
       } finally {
@@ -698,6 +773,9 @@
           },
           body: JSON.stringify({ cpf }),
         });
+        if (res.status === 401) {
+          handleUnauthorized();
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw await buildHttpError(res, "Falha ao consultar CPF.");
@@ -729,6 +807,9 @@
         },
         body: formData,
       });
+      if (res.status === 401) {
+        handleUnauthorized();
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw await buildHttpError(res, "Falha ao importar Black-List.");
@@ -749,6 +830,9 @@
           ...authHeaders(),
         },
       });
+      if (res.status === 401) {
+        handleUnauthorized();
+      }
       if (!res.ok) {
         throw await buildHttpError(res, "Falha ao exportar Black-List.");
       }
@@ -769,6 +853,9 @@
         },
         body: formData,
       });
+      if (res.status === 401) {
+        handleUnauthorized();
+      }
       if (!res.ok) {
         throw await buildHttpError(res, "Falha ao limpar mailing.");
       }
