@@ -120,8 +120,8 @@
     }
     .actions-cta {
       width: 100%;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
     .eagle-btn {
@@ -441,11 +441,11 @@
 
       <div class="actions-wrap hidden" id="actions-wrap">
         <div class="actions-cta">
-          <button class="eagle-btn slim" id="consult-cta" type="button">
+          <button class="eagle-btn" id="consult-cta" type="button">
             <img src="assets/ave.png" alt="Consulta CPF/Vida">
             <span>Consulta CPF / Vida</span>
           </button>
-          <button class="eagle-btn slim" id="manual-cta" type="button">
+          <button class="eagle-btn" id="manual-cta" type="button">
             <img src="assets/ave.png" alt="Adicionar manual">
             <span>Adicionar manual</span>
           </button>
@@ -456,10 +456,6 @@
         </button>
         <div class="actions-panel" id="dashboard-panel">
           <div class="actions">
-            <button class="action-btn" id="btn-add">
-              <strong>Adicionar a Black-List</strong>
-              <span>Importa CPFs para a tabela BlackList.</span>
-            </button>
             <button class="action-btn" id="btn-export">
               <strong>Extrair Black-List</strong>
               <span>Exporta os dados armazenados.</span>
@@ -897,9 +893,6 @@
       }
     };
 
-    document
-      .getElementById("btn-add")
-      .addEventListener("click", safely(handleImport));
     document
       .getElementById("btn-export")
       .addEventListener("click", safely(handleExport));
