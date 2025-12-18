@@ -327,6 +327,7 @@
       border: 1px solid rgba(255, 255, 255, 0.12);
       background: linear-gradient(135deg, rgba(18, 22, 32, 0.94), rgba(12, 14, 22, 0.86));
       box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+      margin-top: 12px;
     }
     .manual-card h2 { margin: 0 0 4px; color: #f7f9fb; }
     .manual-card .muted { margin: 0 0 12px; display: block; }
@@ -536,6 +537,31 @@
             <img src="assets/ave.png" alt="Consulta CPF/Vida">
             <span>Consulta CPF / Vida</span>
           </button>
+          <button class="eagle-btn slim" id="manual-cta" type="button">
+            <img src="assets/ave.png" alt="Adicionar manual">
+            <span>Adicionar manual</span>
+          </button>
+        </div>
+        <div class="manual-card hidden" id="manual-card">
+          <span class="chip">Adicionar manual</span>
+          <h2>Incluir CPF sem planilha</h2>
+          <p class="muted">Digite o CPF e envie direto para a Black-List.</p>
+          <form class="manual-row" id="manual-form">
+            <span class="manual-tag">CPF</span>
+            <input
+              id="manual-cpf-input"
+              class="manual-input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="Digite o CPF (somente numeros)"
+              maxlength="14"
+            >
+            <button class="manual-btn" type="submit" id="btn-manual-add">
+              <span>Adicionar manual</span>
+            </button>
+          </form>
+          <div class="manual-feedback hidden" id="manual-feedback"></div>
         </div>
         <button class="eagle-btn" id="toggle-actions" type="button">
           <img src="assets/ave.png" alt="Am&eacute;rica Financeira">
@@ -555,27 +581,6 @@
               <strong>Limpar Mailing, Black-List</strong>
               <span>Remove CPFs presentes na BlackList de sua planilha.</span>
             </button>
-          </div>
-          <div class="manual-card">
-            <span class="chip">Adicionar manual</span>
-            <h2>Incluir CPF sem planilha</h2>
-            <p class="muted">Digite o CPF e envie direto para a Black-List.</p>
-            <form class="manual-row" id="manual-form">
-              <span class="manual-tag">CPF</span>
-              <input
-                id="manual-cpf-input"
-                class="manual-input"
-                type="text"
-                inputmode="numeric"
-                autocomplete="off"
-                placeholder="Digite o CPF (somente numeros)"
-                maxlength="14"
-              >
-              <button class="manual-btn" type="submit" id="btn-manual-add">
-                <span>Adicionar manual</span>
-              </button>
-            </form>
-            <div class="manual-feedback hidden" id="manual-feedback"></div>
           </div>
         </div>
       </div>
@@ -601,6 +606,7 @@
     const actionsWrap = document.getElementById("actions-wrap");
     const toggleActionsBtn = document.getElementById("toggle-actions");
     const consultCta = document.getElementById("consult-cta");
+    const manualCta = document.getElementById("manual-cta");
     const loginFeedback = document.getElementById("login-feedback");
     const loginButton = form.querySelector('button[type="submit"]');
     const dashboardTitle = document.getElementById("dashboard-title");
@@ -611,6 +617,7 @@
     const manualInput = document.getElementById("manual-cpf-input");
     const manualButton = document.getElementById("btn-manual-add");
     const manualFeedback = document.getElementById("manual-feedback");
+    const manualCard = document.getElementById("manual-card");
     const AUTH_TOKEN_KEY = "authToken";
     const AUTH_EXPIRES_KEY = "authExpiresAt";
     let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -730,6 +737,16 @@
       actionsWrap.classList.toggle("open", isOpen);
     };
 
+    const openManualCard = () => {
+      ensureLoggedIn();
+      if (!manualCard) return;
+      manualCard.classList.remove("hidden");
+      setManualFeedback("");
+      setActionsOpen(false);
+      manualInput?.focus();
+      manualCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+
     const focusConsultInput = () => {
       if (!consultInput) return;
       consultInput.focus();
@@ -829,6 +846,9 @@
 
     if (consultCta) {
       consultCta.addEventListener("click", openConsultPage);
+    }
+    if (manualCta) {
+      manualCta.addEventListener("click", safely(openManualCard));
     }
 
     const createFileInput = () => {
