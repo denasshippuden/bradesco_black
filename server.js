@@ -557,6 +557,73 @@ app.post("/api/blacklist/check", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/blacklist/add", requireAuth, async (req, res) => {
+  const ip = req.ip;
+  try {
+    const rawCpf = String(req.body?.cpf || "");
+    const normalized = normalizeCpf(rawCpf);
+    if (!normalized) {
+      await logEvent("manual_add", 400, { ip }, "CPF nao informado");
+      return res.status(400).json({ error: "CPF nao informado." });
+    }
+    if (!isPossibleCpf(normalized)) {
+      await logEvent("manual_add", 400, { ip }, "CPF invalido");
+      return res.status(400).json({ error: "CPF invalido." });
+    }
+    const canonical = toCanonicalCpf(normalized);
+
+    await ensureDatabaseReady();
+    const client = await pool.connect();
+    let inserted = false;
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query(
+        `UPDATE ${TABLE} SET updated_at = NOW() WHERE cpf = $1`,
+        [canonical]
+      );
+      if (!updated.rowCount) {
+        const insertedResult = await client.query(
+          `INSERT INTO ${TABLE} (cpf, updated_at) VALUES ($1, NOW()) ON CONFLICT (cpf) DO NOTHING`,
+          [canonical]
+        );
+        inserted = insertedResult.rowCount > 0;
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await logEvent("manual_add", 200, {
+      ip,
+      total_input: 1,
+      inserted: inserted ? 1 : 0,
+      duplicates: inserted ? 0 : 1,
+      output_count: inserted ? 1 : 0,
+    });
+    return res.json({
+      ok: true,
+      inserted,
+      cpf: canonical,
+      message: inserted
+        ? "CPF adicionado a Black-List."
+        : "CPF ja estava na Black-List.",
+    });
+  } catch (err) {
+    const status = err.status || 500;
+    console.error(err);
+    await logEvent(
+      "manual_add",
+      status,
+      { ip, err: err.message },
+      "Falha ao adicionar CPF manualmente"
+    );
+    res.status(status).json({ error: err.message || "Falha ao adicionar CPF." });
+  }
+});
+
 app.post(
   "/api/blacklist/import",
   requireAuth,
