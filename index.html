@@ -321,98 +321,6 @@
       filter: saturate(1.05);
     }
     .consult-btn:active { transform: translateY(0); }
-    .manual-card {
-      padding: 16px 16px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: linear-gradient(135deg, rgba(18, 22, 32, 0.94), rgba(12, 14, 22, 0.86));
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
-      margin-top: 12px;
-    }
-    .manual-card h2 { margin: 0 0 4px; color: #f7f9fb; }
-    .manual-card .muted { margin: 0 0 12px; display: block; }
-    .manual-row {
-      display: grid;
-      grid-template-columns: 86px 1fr 160px;
-      gap: 10px;
-      align-items: stretch;
-    }
-    .manual-tag {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 10px;
-      border: 1px solid rgba(226, 67, 90, 0.7);
-      background: linear-gradient(135deg, #e2435a, #ff6f61);
-      color: #fdfdfd;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      box-shadow: 0 10px 22px rgba(226, 67, 90, 0.35);
-    }
-    .manual-input {
-      width: 100%;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text);
-    }
-    .manual-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.16);
-      outline: none;
-    }
-    .manual-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(80, 204, 132, 0.7);
-      background: linear-gradient(135deg, #4ade80, #22c55e);
-      color: #0b1220;
-      font-weight: 800;
-      cursor: pointer;
-      letter-spacing: 0.01em;
-      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
-    }
-    .manual-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 26px rgba(34, 197, 94, 0.35);
-      filter: saturate(1.05);
-    }
-    .manual-btn:active { transform: translateY(0); }
-    .manual-feedback {
-      margin-top: 10px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.06);
-      font-weight: 700;
-      text-align: center;
-    }
-    .manual-feedback.is-success {
-      border-color: rgba(80, 204, 132, 0.8);
-      background: rgba(80, 204, 132, 0.16);
-      color: #e8fff2;
-    }
-    .manual-feedback.is-error {
-      border-color: rgba(226, 67, 90, 0.8);
-      background: rgba(226, 67, 90, 0.12);
-      color: #ffe6ec;
-    }
-    @media (max-width: 720px) {
-      .manual-row {
-        grid-template-columns: 1fr;
-      }
-      .manual-tag {
-        justify-content: flex-start;
-        padding-left: 12px;
-        height: 42px;
-      }
-      .manual-btn { width: 100%; }
-    }
     .consult-feedback {
       margin-top: 10px;
       padding: 10px 12px;
@@ -542,27 +450,6 @@
             <span>Adicionar manual</span>
           </button>
         </div>
-        <div class="manual-card hidden" id="manual-card">
-          <span class="chip">Adicionar manual</span>
-          <h2>Incluir CPF sem planilha</h2>
-          <p class="muted">Digite o CPF e envie direto para a Black-List.</p>
-          <form class="manual-row" id="manual-form">
-            <span class="manual-tag">CPF</span>
-            <input
-              id="manual-cpf-input"
-              class="manual-input"
-              type="text"
-              inputmode="numeric"
-              autocomplete="off"
-              placeholder="Digite o CPF (somente numeros)"
-              maxlength="14"
-            >
-            <button class="manual-btn" type="submit" id="btn-manual-add">
-              <span>Adicionar manual</span>
-            </button>
-          </form>
-          <div class="manual-feedback hidden" id="manual-feedback"></div>
-        </div>
         <button class="eagle-btn" id="toggle-actions" type="button">
           <img src="assets/ave.png" alt="Am&eacute;rica Financeira">
           <span>Black-List Bradesco Vida</span>
@@ -613,11 +500,6 @@
     const consultInput = document.getElementById("cpf-check-input");
     const consultFeedback = document.getElementById("consult-feedback");
     const consultButton = document.getElementById("btn-consult");
-    const manualForm = document.getElementById("manual-form");
-    const manualInput = document.getElementById("manual-cpf-input");
-    const manualButton = document.getElementById("btn-manual-add");
-    const manualFeedback = document.getElementById("manual-feedback");
-    const manualCard = document.getElementById("manual-card");
     const AUTH_TOKEN_KEY = "authToken";
     const AUTH_EXPIRES_KEY = "authExpiresAt";
     let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -723,28 +605,11 @@
       consultFeedback.classList.toggle("is-success", variant === "success");
       consultFeedback.classList.toggle("is-error", variant === "error");
     };
-    const setManualFeedback = (message = "", variant = "") => {
-      if (!manualFeedback) return;
-      manualFeedback.textContent = message;
-      manualFeedback.classList.toggle("hidden", !message);
-      manualFeedback.classList.toggle("is-success", variant === "success");
-      manualFeedback.classList.toggle("is-error", variant === "error");
-    };
     const cleanCpf = (value = "") => value.replace(/\D/g, "").slice(0, 11);
 
     const setActionsOpen = (isOpen = true) => {
       if (!actionsWrap) return;
       actionsWrap.classList.toggle("open", isOpen);
-    };
-
-    const openManualCard = () => {
-      ensureLoggedIn();
-      if (!manualCard) return;
-      manualCard.classList.remove("hidden");
-      setManualFeedback("");
-      setActionsOpen(false);
-      manualInput?.focus();
-      manualCard.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
     const focusConsultInput = () => {
@@ -848,7 +713,9 @@
       consultCta.addEventListener("click", openConsultPage);
     }
     if (manualCta) {
-      manualCta.addEventListener("click", safely(openManualCard));
+      manualCta.addEventListener("click", () => {
+        window.location.href = "/adicionar";
+      });
     }
 
     const createFileInput = () => {
@@ -937,64 +804,6 @@
         if (consultButton) {
           consultButton.disabled = false;
           consultButton.textContent = "Consulta Vida";
-        }
-      }
-    };
-
-    const handleManualAdd = async () => {
-      setManualFeedback("");
-      const cpf = cleanCpf(manualInput?.value || "");
-      if (manualInput) {
-        manualInput.value = cpf;
-      }
-      if (!cpf) {
-        setManualFeedback("Informe o CPF.", "error");
-        manualInput?.focus();
-        return;
-      }
-      if (cpf.length < 8 || cpf.length > 11) {
-        setManualFeedback("CPF invalido.", "error");
-        manualInput?.focus();
-        return;
-      }
-
-      if (manualButton) {
-        manualButton.disabled = true;
-        manualButton.textContent = "Adicionando...";
-      }
-      try {
-        ensureLoggedIn();
-        const res = await fetch(apiUrl("/api/blacklist/add"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders(),
-          },
-          body: JSON.stringify({ cpf }),
-        });
-        if (res.status === 401) {
-          handleUnauthorized();
-          return;
-        }
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw await buildHttpError(res, "Falha ao adicionar CPF.");
-        }
-        setManualFeedback(
-          data.inserted
-            ? "CPF adicionado a Black-List."
-            : "CPF ja estava na Black-List.",
-          data.inserted ? "success" : "error"
-        );
-        if (manualInput) {
-          manualInput.value = "";
-        }
-      } catch (err) {
-        setManualFeedback(err.message || "Falha ao adicionar CPF.", "error");
-      } finally {
-        if (manualButton) {
-          manualButton.disabled = false;
-          manualButton.textContent = "Adicionar manual";
         }
       }
     };
@@ -1097,17 +906,6 @@
     document
       .getElementById("btn-clean")
       .addEventListener("click", safely(handleClean));
-    if (manualForm) {
-      manualForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        handleManualAdd();
-      });
-    }
-    if (manualInput) {
-      manualInput.addEventListener("input", (event) => {
-        event.target.value = cleanCpf(event.target.value);
-      });
-    }
     if (consultButton) {
       consultButton.addEventListener("click", handleConsult);
     }

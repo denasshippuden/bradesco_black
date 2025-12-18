@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adicionar Black-List</title>
+  <style>
+    :root {
+      --panel: rgba(16, 20, 30, 0.92);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent: #5ea4ff;
+      --accent-2: #f5405c;
+      --success: #22c55e;
+      --text: #e8edf2;
+      --muted: #b5c2d4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 18px;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 20%, rgba(94, 164, 255, 0.14), transparent 30%),
+                  radial-gradient(circle at 80% 30%, rgba(245, 64, 92, 0.14), transparent 28%),
+                  #0c1018;
+      position: relative;
+      overflow: hidden;
+    }
+    body::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("/assets/dashboard-bg.png");
+      background-size: cover;
+      background-position: center;
+      opacity: 0.25;
+      z-index: 0;
+      filter: blur(2px);
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: min(780px, 100%);
+      display: grid;
+      gap: 14px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 24px 22px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+    }
+    .card.secondary {
+      background: linear-gradient(135deg, rgba(16, 20, 30, 0.92), rgba(12, 14, 22, 0.9));
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(94, 164, 255, 0.16);
+      border: 1px solid rgba(94, 164, 255, 0.35);
+      color: var(--text);
+      letter-spacing: 0.05em;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1, h2 { margin: 0 0 8px; }
+    h1 { font-size: 26px; }
+    h2 { font-size: 20px; color: #f7f9fb; }
+    p { margin: 0 0 16px; color: var(--muted); line-height: 1.5; }
+    label {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], .file-label {
+      width: 100%;
+      padding: 14px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      outline: none;
+    }
+    input:focus, .file-label:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(94, 164, 255, 0.2);
+    }
+    button {
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .primary {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ff6f61, var(--accent-2));
+      color: #0b1220;
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    }
+    .primary.success {
+      background: linear-gradient(135deg, #4ade80, var(--success));
+      color: #0b1220;
+    }
+    .primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(245, 64, 92, 0.35);
+      filter: saturate(1.05);
+    }
+    .primary:active { transform: translateY(0); }
+    .ghost {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .ghost:hover {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .feedback {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      font-weight: 700;
+      text-align: center;
+    }
+    .feedback.is-success {
+      border-color: rgba(80, 204, 132, 0.8);
+      background: rgba(80, 204, 132, 0.16);
+      color: #e8fff2;
+    }
+    .feedback.is-error {
+      border-color: rgba(226, 67, 90, 0.8);
+      background: rgba(226, 67, 90, 0.12);
+      color: #ffe6ec;
+    }
+    .hidden { display: none; }
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 10px;
+      align-items: center;
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+      align-items: center;
+    }
+    .file-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .file-label span {
+      display: inline-block;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .actions-row {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 640px) {
+      .input-row, .file-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="pill">Adicionar Black-List</div>
+      <h1>Adicionar CPF manualmente</h1>
+      <p>Inclua um CPF sem precisar de planilha.</p>
+      <form id="manual-form">
+        <label for="manual-input">CPF</label>
+        <div class="input-row">
+          <input
+            id="manual-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Digite o CPF (somente numeros)"
+            maxlength="14"
+          >
+          <button class="primary success" type="submit" id="manual-button">Adicionar manual</button>
+        </div>
+      </form>
+      <div class="feedback hidden" id="manual-feedback"></div>
+    </div>
+
+    <div class="card secondary">
+      <h2>Importar via planilha</h2>
+      <p>Envie um CSV (.csv) com CPFs na primeira coluna para incluir em massa.</p>
+      <form id="import-form">
+        <div class="file-row">
+          <label class="file-label" for="import-file">
+            <span id="file-name">Nenhum arquivo selecionado</span>
+          </label>
+          <input type="file" id="import-file" accept=".csv,text/csv" class="hidden">
+          <button class="ghost" type="button" id="pick-file">Selecionar arquivo</button>
+        </div>
+        <div class="actions-row">
+          <button class="primary" type="submit" id="import-button">Importar Black-List</button>
+          <button class="ghost" type="button" id="back-btn">Voltar ao painel</button>
+        </div>
+      </form>
+      <div class="feedback hidden" id="import-feedback"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.API_BASE || "";
+    const apiUrl = (path) => `${API_BASE}`.replace(/\/$/, "") + path;
+
+    const manualForm = document.getElementById("manual-form");
+    const manualInput = document.getElementById("manual-input");
+    const manualButton = document.getElementById("manual-button");
+    const manualFeedback = document.getElementById("manual-feedback");
+
+    const importForm = document.getElementById("import-form");
+    const pickFileBtn = document.getElementById("pick-file");
+    const importFileInput = document.getElementById("import-file");
+    const importButton = document.getElementById("import-button");
+    const importFeedback = document.getElementById("import-feedback");
+    const fileNameLabel = document.getElementById("file-name");
+    const backBtn = document.getElementById("back-btn");
+
+    const AUTH_TOKEN_KEY = "authToken";
+    const AUTH_EXPIRES_KEY = "authExpiresAt";
+    let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+    let authExpiresAt = Number(localStorage.getItem(AUTH_EXPIRES_KEY) || 0);
+
+    const authHeaders = () =>
+      authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+    const buildHttpError = async (res, fallback) => {
+      let data = null;
+      try {
+        data = await res.clone().json();
+      } catch (_) {
+        /* ignore parse errors */
+      }
+      const msg =
+        (data && (data.error || data.message)) ||
+        fallback ||
+        (res.status ? `Erro ${res.status} - ${res.statusText || ""}` : "Erro inesperado.");
+      const error = new Error(msg);
+      error.status = res.status;
+      error.body = data;
+      return error;
+    };
+
+    const setFeedback = (el, message = "", variant = "") => {
+      el.textContent = message;
+      el.classList.toggle("hidden", !message);
+      el.classList.toggle("is-success", variant === "success");
+      el.classList.toggle("is-error", variant === "error");
+    };
+
+    const cleanCpf = (value = "") => value.replace(/\D/g, "").slice(0, 11);
+
+    const isSessionExpired = () =>
+      !authToken || (authExpiresAt && Date.now() >= authExpiresAt);
+
+    const redirectToLogin = (message) => {
+      authToken = "";
+      authExpiresAt = 0;
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_EXPIRES_KEY);
+      alert(message || "Sessao expirada, faca login novamente.");
+      window.location.href = "index.html";
+    };
+
+    const ensureToken = () => {
+      if (isSessionExpired()) {
+        redirectToLogin("Sessao expirada, faca login novamente.");
+        return false;
+      }
+      return true;
+    };
+
+    if (!ensureToken()) {
+      manualInput.disabled = true;
+      importButton.disabled = true;
+      pickFileBtn.disabled = true;
+    }
+
+    const handleManualSubmit = async (event) => {
+      event.preventDefault();
+      if (!ensureToken()) return;
+      setFeedback(manualFeedback, "");
+      const cpf = cleanCpf(manualInput?.value || "");
+      if (manualInput) {
+        manualInput.value = cpf;
+      }
+      if (!cpf) {
+        setFeedback(manualFeedback, "Informe o CPF.", "error");
+        manualInput?.focus();
+        return;
+      }
+      if (cpf.length < 8 || cpf.length > 11) {
+        setFeedback(manualFeedback, "CPF invalido.", "error");
+        manualInput?.focus();
+        return;
+      }
+
+      manualButton.disabled = true;
+      manualButton.textContent = "Adicionando...";
+      try {
+        const res = await fetch(apiUrl("/api/blacklist/add"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ cpf }),
+        });
+        if (res.status === 401) {
+          redirectToLogin("Sessao expirada, faca login novamente.");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw await buildHttpError(res, "Falha ao adicionar CPF.");
+        }
+        setFeedback(
+          manualFeedback,
+          data.inserted
+            ? "CPF adicionado a Black-List."
+            : "CPF ja estava na Black-List.",
+          data.inserted ? "success" : "error"
+        );
+        manualInput.value = "";
+      } catch (err) {
+        setFeedback(manualFeedback, err.message || "Falha ao adicionar CPF.", "error");
+      } finally {
+        manualButton.disabled = false;
+        manualButton.textContent = "Adicionar manual";
+      }
+    };
+
+    const handleImportSubmit = async (event) => {
+      event.preventDefault();
+      if (!ensureToken()) return;
+      setFeedback(importFeedback, "");
+      const [file] = importFileInput.files || [];
+      if (!file) {
+        setFeedback(importFeedback, "Selecione um arquivo CSV.", "error");
+        return;
+      }
+
+      importButton.disabled = true;
+      importButton.textContent = "Importando...";
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(apiUrl("/api/blacklist/import"), {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+          },
+          body: formData,
+        });
+        if (res.status === 401) {
+          redirectToLogin("Sessao expirada, faca login novamente.");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw await buildHttpError(res, "Falha ao importar Black-List.");
+        }
+        setFeedback(
+          importFeedback,
+          `Importacao concluida. Processados: ${data.processed ?? "-"}, Inseridos: ${data.inserted ?? "-"}, Duplicados: ${data.duplicates ?? "-"}, Invalidos: ${data.invalid ?? "-"}.`,
+          "success"
+        );
+        importFileInput.value = "";
+        fileNameLabel.textContent = "Nenhum arquivo selecionado";
+      } catch (err) {
+        setFeedback(importFeedback, err.message || "Falha ao importar Black-List.", "error");
+      } finally {
+        importButton.disabled = false;
+        importButton.textContent = "Importar Black-List";
+      }
+    };
+
+    manualForm.addEventListener("submit", handleManualSubmit);
+    importForm.addEventListener("submit", handleImportSubmit);
+
+    if (manualInput) {
+      manualInput.addEventListener("input", (event) => {
+        event.target.value = cleanCpf(event.target.value);
+      });
+      manualInput.focus();
+    }
+
+    pickFileBtn.addEventListener("click", () => importFileInput.click());
+    importFileInput.addEventListener("change", () => {
+      const [file] = importFileInput.files || [];
+      fileNameLabel.textContent = file ? file.name : "Nenhum arquivo selecionado";
+    });
+
+    backBtn.addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+  </script>
+</body>
+</html>

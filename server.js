@@ -411,11 +411,16 @@ const sendIndex = (req, res) => {
 const sendConsulta = (req, res) => {
   res.sendFile(path.join(__dirname, "consulta.html"));
 };
+const sendAdicionar = (req, res) => {
+  res.sendFile(path.join(__dirname, "add.html"));
+};
 
 app.get("/", sendIndex);
 app.get("/index.html", sendIndex);
 app.get("/consulta", sendConsulta);
 app.get("/consulta.html", sendConsulta);
+app.get("/adicionar", sendAdicionar);
+app.get("/adicionar.html", sendAdicionar);
 
 app.post("/api/login", async (req, res) => {
   const { user, pass } = req.body || {};
@@ -833,6 +838,9 @@ app.use((req, res) => {
 
   if (req.path.startsWith("/consulta")) {
     return sendConsulta(req, res);
+  }
+  if (req.path.startsWith("/adicionar")) {
+    return sendAdicionar(req, res);
   }
 
   return res.sendFile(path.join(__dirname, "index.html"));
