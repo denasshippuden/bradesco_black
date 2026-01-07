@@ -57,6 +57,7 @@ const LOG_TABLE_DEFINITION = `
     action TEXT,
     status INT,
     message TEXT,
+    username TEXT,
     processed INT,
     inserted INT,
     duplicates INT,
@@ -105,6 +106,9 @@ const prepareConnection = async (client) => {
   await client.query(`CREATE SCHEMA IF NOT EXISTS ${SCHEMA}`);
   await client.query(BLACKLIST_TABLE_DEFINITION);
   await client.query(LOG_TABLE_DEFINITION);
+  await client.query(
+    `ALTER TABLE ${LOG_TABLE} ADD COLUMN IF NOT EXISTS username TEXT`
+  );
   await client.query(USERS_TABLE_DEFINITION);
   await client
     .query(`SET search_path TO ${SCHEMA}, public`)
@@ -174,6 +178,7 @@ const logEvent = async (action, status, meta = {}, message = "") => {
   try {
     await ensureDatabaseReady();
     const fields = {
+      username: meta.user ?? meta.username ?? meta.login ?? null,
       processed: meta.processed ?? null,
       inserted: meta.inserted ?? null,
       duplicates: meta.duplicates ?? null,
@@ -184,12 +189,13 @@ const logEvent = async (action, status, meta = {}, message = "") => {
     };
     await pool.query(
       `INSERT INTO ${LOG_TABLE}
-       (action, status, message, processed, inserted, duplicates, invalid, total_input, output_count, ip)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       (action, status, message, username, processed, inserted, duplicates, invalid, total_input, output_count, ip)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         action,
         status,
         message || null,
+        fields.username,
         fields.processed,
         fields.inserted,
         fields.duplicates,
@@ -425,15 +431,15 @@ app.get("/adicionar.html", sendAdicionar);
 app.post("/api/login", async (req, res) => {
   const { user, pass } = req.body || {};
   const ip = req.ip;
-  const configError = assertAuthConfigured();
-  if (configError) {
-    await logEvent("login", 500, { ip }, configError);
-    return res.status(500).json({ error: configError });
-  }
   const username = toUsername(user);
   const usernameLower = toUsernameLower(user);
+  const configError = assertAuthConfigured();
+  if (configError) {
+    await logEvent("login", 500, { ip, user: username }, configError);
+    return res.status(500).json({ error: configError });
+  }
   if (!username || !pass) {
-    await logEvent("login", 400, { ip }, "Credenciais incompletas");
+    await logEvent("login", 400, { ip, user: username }, "Credenciais incompletas");
     return res
       .status(400)
       .json({ error: "Usuario e senha sao obrigatorios." });
@@ -446,13 +452,13 @@ app.post("/api/login", async (req, res) => {
       [usernameLower]
     );
     if (!result.rowCount) {
-      await logEvent("login", 401, { ip }, "Credenciais invalidas");
+      await logEvent("login", 401, { ip, user: username }, "Credenciais invalidas");
       return res.status(401).json({ error: "Credenciais invalidas." });
     }
     const [row] = result.rows;
     const valid = verifyPassword(pass, row.passhash);
     if (!valid) {
-      await logEvent("login", 401, { ip }, "Credenciais invalidas");
+      await logEvent("login", 401, { ip, user: username }, "Credenciais invalidas");
       return res.status(401).json({ error: "Credenciais invalidas." });
     }
 
@@ -467,7 +473,12 @@ app.post("/api/login", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    await logEvent("login", 500, { ip, err: err.message }, "Erro ao autenticar");
+    await logEvent(
+      "login",
+      500,
+      { ip, user: username, err: err.message },
+      "Erro ao autenticar"
+    );
     return res.status(500).json({ error: "Erro ao autenticar." });
   }
 });
@@ -505,22 +516,28 @@ app.post("/api/users", requireAuth, async (req, res) => {
     return res.json({ ok: true, user: username });
   } catch (err) {
     console.error(err);
-    await logEvent("user_create", 500, { ip, err: err.message }, "Erro ao criar usuario");
+    await logEvent(
+      "user_create",
+      500,
+      { ip, user: username, err: err.message },
+      "Erro ao criar usuario"
+    );
     return res.status(500).json({ error: "Erro ao criar usuario." });
   }
 });
 
 app.post("/api/blacklist/check", requireAuth, async (req, res) => {
   const ip = req.ip;
+  const user = req.auth?.user;
   try {
     const rawCpf = String(req.body?.cpf || "");
     const normalized = normalizeCpf(rawCpf);
     if (!normalized) {
-      await logEvent("check", 400, { ip }, "CPF nao informado");
+      await logEvent("check", 400, { ip, user }, "CPF nao informado");
       return res.status(400).json({ error: "CPF nao informado." });
     }
     if (!isPossibleCpf(normalized)) {
-      await logEvent("check", 400, { ip }, "CPF invalido");
+      await logEvent("check", 400, { ip, user }, "CPF invalido");
       return res.status(400).json({ error: "CPF invalido." });
     }
     const canonical = toCanonicalCpf(normalized);
@@ -537,7 +554,7 @@ app.post("/api/blacklist/check", requireAuth, async (req, res) => {
     await logEvent(
       "check",
       200,
-      { ip, total_input: 1, output_count: blacklisted ? 1 : 0 },
+      { ip, user, total_input: 1, output_count: blacklisted ? 1 : 0 },
       blacklisted ? "CPF na blacklist" : "CPF liberado"
     );
     return res.json({
@@ -553,7 +570,7 @@ app.post("/api/blacklist/check", requireAuth, async (req, res) => {
     await logEvent(
       "check",
       status,
-      { ip, err: err.message },
+      { ip, user, err: err.message },
       "Falha ao consultar CPF"
     );
     res
@@ -564,15 +581,16 @@ app.post("/api/blacklist/check", requireAuth, async (req, res) => {
 
 app.post("/api/blacklist/add", requireAuth, async (req, res) => {
   const ip = req.ip;
+  const user = req.auth?.user;
   try {
     const rawCpf = String(req.body?.cpf || "");
     const normalized = normalizeCpf(rawCpf);
     if (!normalized) {
-      await logEvent("manual_add", 400, { ip }, "CPF nao informado");
+      await logEvent("manual_add", 400, { ip, user }, "CPF nao informado");
       return res.status(400).json({ error: "CPF nao informado." });
     }
     if (!isPossibleCpf(normalized)) {
-      await logEvent("manual_add", 400, { ip }, "CPF invalido");
+      await logEvent("manual_add", 400, { ip, user }, "CPF invalido");
       return res.status(400).json({ error: "CPF invalido." });
     }
     const canonical = toCanonicalCpf(normalized);
@@ -603,6 +621,7 @@ app.post("/api/blacklist/add", requireAuth, async (req, res) => {
 
     await logEvent("manual_add", 200, {
       ip,
+      user,
       total_input: 1,
       inserted: inserted ? 1 : 0,
       duplicates: inserted ? 0 : 1,
@@ -622,7 +641,7 @@ app.post("/api/blacklist/add", requireAuth, async (req, res) => {
     await logEvent(
       "manual_add",
       status,
-      { ip, err: err.message },
+      { ip, user, err: err.message },
       "Falha ao adicionar CPF manualmente"
     );
     res.status(status).json({ error: err.message || "Falha ao adicionar CPF." });
@@ -635,6 +654,7 @@ app.post(
   upload.single("file"),
   async (req, res) => {
   const ip = req.ip;
+  const user = req.auth?.user;
   try {
     await ensureDatabaseReady();
     if (!req.file) {
@@ -703,12 +723,13 @@ app.post(
         ...payload,
         total_input: validCpfs.length + invalid,
         ip,
+        user,
       });
       return res.json(payload);
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Erro no import:", err);
-      await logEvent("import", 500, { ip }, "Erro no import");
+      await logEvent("import", 500, { ip, user }, "Erro no import");
       return res.status(500).json({ error: "Falha ao importar CPFs." });
     } finally {
       client.release();
@@ -716,13 +737,14 @@ app.post(
   } catch (err) {
     const status = err.status || 500;
     console.error(err);
-    await logEvent("import", status, { ip, err: err.message }, err.message);
+    await logEvent("import", status, { ip, user, err: err.message }, err.message);
     res.status(status).json({ error: err.message || "Erro interno." });
   }
 });
 
 app.get("/api/blacklist/export", requireAuth, async (req, res) => {
   const ip = req.ip;
+  const user = req.auth?.user;
   try {
     await ensureDatabaseReady();
     const result = await pool.query(
@@ -733,6 +755,7 @@ app.get("/api/blacklist/export", requireAuth, async (req, res) => {
       processed: result.rowCount,
       output_count: result.rowCount,
       ip,
+      user,
     });
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -742,7 +765,7 @@ app.get("/api/blacklist/export", requireAuth, async (req, res) => {
     res.send(lines.join("\n"));
   } catch (err) {
     console.error(err);
-    await logEvent("export", 500, { ip }, "Falha ao exportar BlackList");
+    await logEvent("export", 500, { ip, user }, "Falha ao exportar BlackList");
     res.status(500).json({ error: "Falha ao exportar BlackList." });
   }
 });
@@ -753,6 +776,7 @@ app.post(
   upload.single("file"),
   async (req, res) => {
   const ip = req.ip;
+  const user = req.auth?.user;
   try {
     await ensureDatabaseReady();
     if (!req.file) {
@@ -807,6 +831,7 @@ app.post(
       total_input: parsed.rows.length,
       output_count: cleanedRows.length,
       ip,
+      user,
     });
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -822,7 +847,7 @@ app.post(
     await logEvent(
       "clean",
       err.status || 500,
-      { ip, err: err.message },
+      { ip, user, err: err.message },
       "Falha ao limpar mailing"
     );
     res.status(500).json({ error: "Falha ao limpar mailing." });
